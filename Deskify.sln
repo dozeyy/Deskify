@@ -1,0 +1,36 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.0.31903.59
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{7A7F751C-213D-4FED-9466-96156EBF0A3E}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Deskify.App", "src\Deskify.App\Deskify.App.csproj", "{D02EDA7D-9CBB-4218-A9D4-711750F3F8F4}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "installer", "installer", "{A54834DA-C8E5-48D7-BAC6-4743044BF7B8}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Deskify.Setup", "installer\Deskify.Setup\Deskify.Setup.csproj", "{1360D57D-C218-43A2-A26E-6EA4A864C5DD}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{D02EDA7D-9CBB-4218-A9D4-711750F3F8F4}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{D02EDA7D-9CBB-4218-A9D4-711750F3F8F4}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{D02EDA7D-9CBB-4218-A9D4-711750F3F8F4}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{D02EDA7D-9CBB-4218-A9D4-711750F3F8F4}.Release|Any CPU.Build.0 = Release|Any CPU
+		{1360D57D-C218-43A2-A26E-6EA4A864C5DD}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{1360D57D-C218-43A2-A26E-6EA4A864C5DD}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{1360D57D-C218-43A2-A26E-6EA4A864C5DD}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{1360D57D-C218-43A2-A26E-6EA4A864C5DD}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{D02EDA7D-9CBB-4218-A9D4-711750F3F8F4} = {7A7F751C-213D-4FED-9466-96156EBF0A3E}
+		{1360D57D-C218-43A2-A26E-6EA4A864C5DD} = {A54834DA-C8E5-48D7-BAC6-4743044BF7B8}
+	EndGlobalSection
+EndGlobal

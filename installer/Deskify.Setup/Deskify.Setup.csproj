@@ -1,0 +1,46 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Deskify Setup: a self-contained, single-file WPF installer.
+       It carries its own .NET runtime AND the published Deskify app
+       (embedded as payload.zip), so setup.exe runs on any Windows 10/11
+       machine with nothing pre-installed. Build via installer\build-installer.ps1. -->
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <RootNamespace>Deskify.Setup</RootNamespace>
+    <AssemblyName>Deskify-Setup</AssemblyName>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <LangVersion>latest</LangVersion>
+    <UseWPF>true</UseWPF>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <ApplicationIcon>Assets\deskify.ico</ApplicationIcon>
+
+    <Product>Deskify Setup</Product>
+    <AssemblyTitle>Deskify Setup</AssemblyTitle>
+    <Version>0.1.0</Version>
+    <FileVersion>0.1.0.0</FileVersion>
+    <Description>Installer for Deskify — workspace automation for Windows.</Description>
+
+    <!-- Publish knobs (applied on `dotnet publish`): one bundled exe, no deps. -->
+    <RuntimeIdentifier>win-x64</RuntimeIdentifier>
+    <SelfContained>true</SelfContained>
+    <PublishSingleFile>true</PublishSingleFile>
+    <EnableCompressionInSingleFile>true</EnableCompressionInSingleFile>
+    <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
+    <!-- WPF can't be trimmed reliably; keep it off. -->
+    <PublishTrimmed>false</PublishTrimmed>
+    <SatelliteResourceLanguages>en</SatelliteResourceLanguages>
+  </PropertyGroup>
+
+  <!-- The published Deskify app, zipped by build-installer.ps1 and embedded so
+       the whole installer is a single file. Condition lets the project load/build
+       before the payload exists (e.g. in the IDE); the build script always
+       produces it before publishing. -->
+  <ItemGroup Condition="Exists('payload\payload.zip')">
+    <EmbeddedResource Include="payload\payload.zip">
+      <LogicalName>payload.zip</LogicalName>
+    </EmbeddedResource>
+  </ItemGroup>
+
+</Project>

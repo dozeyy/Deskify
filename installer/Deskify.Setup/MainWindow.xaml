@@ -1,0 +1,215 @@
+<Window x:Class="Deskify.Setup.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Deskify Setup" Height="560" Width="720"
+        WindowStartupLocation="CenterScreen"
+        WindowStyle="None" AllowsTransparency="True" Background="Transparent"
+        ResizeMode="NoResize" FontFamily="{StaticResource UiFont}"
+        UseLayoutRounding="True" TextOptions.TextFormattingMode="Ideal"
+        SnapsToDevicePixels="True">
+
+    <!-- Outer margin leaves room for the drop shadow -->
+    <Border Margin="18" CornerRadius="16" Background="{StaticResource BgBrush}"
+            BorderBrush="{StaticResource StrokeBrush}" BorderThickness="1">
+        <Border.Effect>
+            <DropShadowEffect BlurRadius="34" ShadowDepth="0" Opacity="0.55" Color="#000000" />
+        </Border.Effect>
+
+        <Grid>
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="236" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+
+            <!-- ============ BRAND PANEL ============ -->
+            <Border Grid.Column="0" Background="{StaticResource PanelBrush}"
+                    CornerRadius="16,0,0,16">
+                <Border.Clip>
+                    <RectangleGeometry Rect="0,0,236,560" RadiusX="16" RadiusY="16" />
+                </Border.Clip>
+                <Grid Margin="28,34,28,26">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+
+                    <!-- Mark + wordmark -->
+                    <StackPanel Grid.Row="0">
+                        <Border Width="72" Height="72" CornerRadius="18"
+                                Background="{StaticResource CardBrush}"
+                                BorderBrush="{StaticResource StrokeBrush}" BorderThickness="1"
+                                HorizontalAlignment="Left">
+                            <Viewbox Width="40" Height="40">
+                                <Canvas Width="24" Height="24">
+                                    <Path Data="M4 4.5h6.5v15H4z M13.5 4.5H20V11h-6.5z M13.5 13H20v6.5h-6.5z"
+                                          Stroke="{StaticResource AccentBrush}" StrokeThickness="1.4"
+                                          StrokeStartLineCap="Round" StrokeEndLineCap="Round"
+                                          StrokeLineJoin="Round" />
+                                </Canvas>
+                            </Viewbox>
+                        </Border>
+                        <TextBlock Text="Deskify" FontSize="27" FontWeight="SemiBold"
+                                   Foreground="{StaticResource TextBrush}" Margin="0,20,0,0" />
+                        <TextBlock Text="Workspace automation" FontSize="12.5"
+                                   Foreground="{StaticResource TextMutedBrush}" Margin="0,2,0,0" />
+                    </StackPanel>
+
+                    <!-- Feature ticks -->
+                    <StackPanel Grid.Row="1" VerticalAlignment="Center" Margin="0,10,0,0">
+                        <StackPanel Orientation="Horizontal" Margin="0,0,0,14">
+                            <Path Data="M5 12.5 10 17.5 19.5 6.5" Stroke="{StaticResource TextDimBrush}"
+                                  StrokeThickness="1.7" StrokeStartLineCap="Round" StrokeEndLineCap="Round"
+                                  StrokeLineJoin="Round" Stretch="Uniform" Width="16" Height="16"
+                                  VerticalAlignment="Center" />
+                            <TextBlock Text="Restore apps &amp; layout" Foreground="{StaticResource TextDimBrush}"
+                                       FontSize="12.5" Margin="12,0,0,0" VerticalAlignment="Center" />
+                        </StackPanel>
+                        <StackPanel Orientation="Horizontal" Margin="0,0,0,14">
+                            <Path Data="M5 12.5 10 17.5 19.5 6.5" Stroke="{StaticResource TextDimBrush}"
+                                  StrokeThickness="1.7" StrokeStartLineCap="Round" StrokeEndLineCap="Round"
+                                  StrokeLineJoin="Round" Stretch="Uniform" Width="16" Height="16"
+                                  VerticalAlignment="Center" />
+                            <TextBlock Text="Folders &amp; websites" Foreground="{StaticResource TextDimBrush}"
+                                       FontSize="12.5" Margin="12,0,0,0" VerticalAlignment="Center" />
+                        </StackPanel>
+                        <StackPanel Orientation="Horizontal">
+                            <Path Data="M5 12.5 10 17.5 19.5 6.5" Stroke="{StaticResource TextDimBrush}"
+                                  StrokeThickness="1.7" StrokeStartLineCap="Round" StrokeEndLineCap="Round"
+                                  StrokeLineJoin="Round" Stretch="Uniform" Width="16" Height="16"
+                                  VerticalAlignment="Center" />
+                            <TextBlock Text="One-click, no admin" Foreground="{StaticResource TextDimBrush}"
+                                       FontSize="12.5" Margin="12,0,0,0" VerticalAlignment="Center" />
+                        </StackPanel>
+                    </StackPanel>
+
+                    <!-- Footer -->
+                    <StackPanel Grid.Row="2">
+                        <Border Height="1" Background="{StaticResource StrokeSoftBrush}" Margin="0,0,0,14" />
+                        <TextBlock x:Name="VersionLabel" Text="Version 0.1.0"
+                                   Foreground="{StaticResource TextMutedBrush}" FontSize="11.5" />
+                        <TextBlock Text="Per-user install" Foreground="{StaticResource TextMutedBrush}"
+                                   FontSize="11.5" Margin="0,2,0,0" />
+                    </StackPanel>
+                </Grid>
+            </Border>
+
+            <!-- ============ CONTENT ============ -->
+            <Grid Grid.Column="1">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="*" />
+                </Grid.RowDefinitions>
+
+                <!-- Chrome bar (drag + close) -->
+                <Grid x:Name="Chrome" Grid.Row="0" Height="46" Background="Transparent">
+                    <Button x:Name="CloseBtn" Style="{StaticResource Chrome}" HorizontalAlignment="Right"
+                            Margin="0,8,12,0" Click="CloseBtn_Click">
+                        <Path Data="M6 6l12 12 M18 6 6 18" Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
+                              StrokeThickness="1.7" StrokeStartLineCap="Round" StrokeEndLineCap="Round"
+                              Stretch="Uniform" Width="14" Height="14" />
+                    </Button>
+                </Grid>
+
+                <!-- PAGE: OPTIONS -->
+                <Grid x:Name="PageOptions" Grid.Row="1" Margin="40,4,40,34">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+
+                    <StackPanel Grid.Row="0">
+                        <TextBlock Text="WELCOME" Foreground="{StaticResource TextMutedBrush}"
+                                   FontSize="11" FontWeight="Medium" Typography.Capitals="AllSmallCaps" />
+                        <TextBlock Text="Install Deskify" FontSize="27" FontWeight="SemiBold"
+                                   Foreground="{StaticResource TextBrush}" Margin="0,4,0,0" />
+                        <TextBlock Text="Restore your entire desktop — apps, folders, and the exact window layout — in one click."
+                                   Foreground="{StaticResource TextDimBrush}" FontSize="13.5"
+                                   TextWrapping="Wrap" Margin="0,8,0,0" LineHeight="20" />
+                    </StackPanel>
+
+                    <StackPanel Grid.Row="1" Margin="0,24,0,0">
+                        <!-- Location -->
+                        <Border Background="{StaticResource CardBrush}" BorderBrush="{StaticResource StrokeBrush}"
+                                BorderThickness="1" CornerRadius="10" Padding="14,12" Margin="0,0,0,16">
+                            <StackPanel Orientation="Horizontal">
+                                <Path Data="M3 7a1.6 1.6 0 0 1 1.6-1.6h4l1.8 2.2h8A1.6 1.6 0 0 1 20 9.2v8.2A1.6 1.6 0 0 1 18.4 19H4.6A1.6 1.6 0 0 1 3 17.4z"
+                                      Stroke="{StaticResource TextDimBrush}" StrokeThickness="1.6"
+                                      StrokeLineJoin="Round" Stretch="Uniform" Width="20" Height="20"
+                                      VerticalAlignment="Center" />
+                                <StackPanel Margin="13,0,0,0" VerticalAlignment="Center">
+                                    <TextBlock Text="INSTALL LOCATION" Foreground="{StaticResource TextMutedBrush}"
+                                               FontSize="10.5" FontWeight="Medium" Typography.Capitals="AllSmallCaps" />
+                                    <TextBlock x:Name="PathText" Text="…" Foreground="{StaticResource TextBrush}"
+                                               FontSize="12.5" Margin="0,2,0,0" TextTrimming="CharacterEllipsis" />
+                                </StackPanel>
+                            </StackPanel>
+                        </Border>
+
+                        <CheckBox x:Name="OptDesktop" Style="{StaticResource OptionCheck}" IsChecked="True"
+                                  Tag="Add a Deskify icon to your desktop">
+                            <TextBlock Text="Create a desktop shortcut" FontWeight="Medium" FontSize="13.5" />
+                        </CheckBox>
+                        <CheckBox x:Name="OptStartup" Style="{StaticResource OptionCheck}"
+                                  Tag="Deskify opens automatically each time you sign in to Windows">
+                            <TextBlock Text="Start Deskify when I sign in" FontWeight="Medium" FontSize="13.5" />
+                        </CheckBox>
+                        <CheckBox x:Name="OptLaunch" Style="{StaticResource OptionCheck}" IsChecked="True"
+                                  Tag="Open Deskify as soon as setup finishes">
+                            <TextBlock Text="Launch Deskify after installing" FontWeight="Medium" FontSize="13.5" />
+                        </CheckBox>
+                    </StackPanel>
+
+                    <Grid Grid.Row="2" Margin="0,18,0,0">
+                        <TextBlock VerticalAlignment="Center" HorizontalAlignment="Left"
+                                   Foreground="{StaticResource TextMutedBrush}" FontSize="11.5"
+                                   Text="Deskify runs on Windows 10 &amp; 11" />
+                        <Button x:Name="InstallBtn" Style="{StaticResource Primary}" HorizontalAlignment="Right"
+                                Click="InstallBtn_Click" Content="Install Deskify" />
+                    </Grid>
+                </Grid>
+
+                <!-- PAGE: PROGRESS -->
+                <Grid x:Name="PageProgress" Grid.Row="1" Margin="40,4,40,40" Visibility="Collapsed">
+                    <StackPanel VerticalAlignment="Center">
+                        <TextBlock Text="INSTALLING" Foreground="{StaticResource TextMutedBrush}"
+                                   FontSize="11" FontWeight="Medium" Typography.Capitals="AllSmallCaps" />
+                        <TextBlock x:Name="ProgTitle" Text="Setting things up" FontSize="24" FontWeight="SemiBold"
+                                   Foreground="{StaticResource TextBrush}" Margin="0,4,0,0" />
+                        <ProgressBar x:Name="Progress" Style="{StaticResource Bar}" Minimum="0" Maximum="100"
+                                     Value="0" Margin="0,26,0,0" />
+                        <TextBlock x:Name="StatusText" Text="Preparing…" Foreground="{StaticResource TextDimBrush}"
+                                   FontSize="13" Margin="0,14,0,0" />
+                    </StackPanel>
+                </Grid>
+
+                <!-- PAGE: DONE -->
+                <Grid x:Name="PageDone" Grid.Row="1" Margin="40,4,40,34" Visibility="Collapsed">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="*" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+                    <StackPanel Grid.Row="0" VerticalAlignment="Center">
+                        <Border x:Name="DoneBadge" Width="56" Height="56" CornerRadius="28"
+                                Background="{StaticResource CardBrush}" HorizontalAlignment="Left">
+                            <Path x:Name="DoneIcon" Data="M5 12.5 10 17.5 19.5 6.5" Stroke="{StaticResource SuccessBrush}"
+                                  StrokeThickness="2" StrokeStartLineCap="Round" StrokeEndLineCap="Round"
+                                  StrokeLineJoin="Round" Stretch="Uniform" Width="26" Height="26" />
+                        </Border>
+                        <TextBlock x:Name="DoneTitle" Text="Deskify is ready" FontSize="27" FontWeight="SemiBold"
+                                   Foreground="{StaticResource TextBrush}" Margin="0,22,0,0" />
+                        <TextBlock x:Name="DoneSub" Text="Installation complete." Foreground="{StaticResource TextDimBrush}"
+                                   FontSize="13.5" TextWrapping="Wrap" Margin="0,8,0,0" LineHeight="20" />
+                    </StackPanel>
+                    <Grid Grid.Row="1" Margin="0,18,0,0">
+                        <Button x:Name="LaunchBtn" Style="{StaticResource Primary}" HorizontalAlignment="Right"
+                                Click="LaunchBtn_Click" Content="Launch Deskify" />
+                        <Button x:Name="DoneCloseBtn" Style="{StaticResource Ghost}" HorizontalAlignment="Left"
+                                Click="CloseBtn_Click" Content="Close" />
+                    </Grid>
+                </Grid>
+            </Grid>
+        </Grid>
+    </Border>
+</Window>

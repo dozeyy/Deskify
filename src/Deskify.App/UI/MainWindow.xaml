@@ -1,0 +1,682 @@
+<Window x:Class="Deskify.UI.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Deskify" Width="1160" Height="760" MinWidth="900" MinHeight="580"
+        Icon="pack://application:,,,/Assets/deskify.ico"
+        Background="{DynamicResource BgBrush}"
+        WindowStartupLocation="CenterScreen"
+        FontFamily="{StaticResource UiFont}" FontSize="13"
+        TextElement.Foreground="{DynamicResource TextBrush}"
+        TextOptions.TextFormattingMode="Ideal" TextOptions.TextRenderingMode="ClearType"
+        SnapsToDevicePixels="True" UseLayoutRounding="True">
+
+    <Window.Resources>
+        <!-- Read-only app row (right context panel) -->
+        <DataTemplate x:Key="AppRowReadonly">
+            <Border Style="{StaticResource Row}">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <Image Grid.Column="0" Source="{Binding Icon}" Width="18" Height="18"
+                           VerticalAlignment="Center" RenderOptions.BitmapScalingMode="HighQuality" />
+                    <StackPanel Grid.Column="1" Margin="10,0" VerticalAlignment="Center">
+                        <TextBlock Text="{Binding Name}" FontWeight="Medium" TextTrimming="CharacterEllipsis" />
+                        <TextBlock Text="{Binding PathText}" Style="{StaticResource Muted}" FontSize="11" />
+                    </StackPanel>
+                    <Border Grid.Column="2" Style="{StaticResource Chip}" Visibility="{Binding LayoutChipVisibility}">
+                        <TextBlock Text="{Binding LayoutText}" FontSize="11"
+                                   Foreground="{DynamicResource TextDimBrush}" />
+                    </Border>
+                </Grid>
+            </Border>
+        </DataTemplate>
+
+        <!-- Editable app row (wizard) -->
+        <DataTemplate x:Key="AppRowEditable">
+            <Border Style="{StaticResource Row}">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <Image Grid.Column="0" Source="{Binding Icon}" Width="18" Height="18"
+                           VerticalAlignment="Center" RenderOptions.BitmapScalingMode="HighQuality" />
+                    <StackPanel Grid.Column="1" Margin="10,0" VerticalAlignment="Center">
+                        <TextBlock Text="{Binding Name}" FontWeight="Medium" TextTrimming="CharacterEllipsis" />
+                        <TextBlock Text="{Binding PathText}" Style="{StaticResource Muted}" FontSize="11" />
+                    </StackPanel>
+                    <Border Grid.Column="2" Style="{StaticResource Chip}" Visibility="{Binding LayoutChipVisibility}">
+                        <TextBlock Text="{Binding LayoutText}" FontSize="11"
+                                   Foreground="{DynamicResource TextDimBrush}" />
+                    </Border>
+                    <Button Grid.Column="3" Style="{StaticResource IconBtn}" Margin="6,0,0,0"
+                            Tag="{Binding}" Click="RemoveApp_Click" ToolTip="Remove">
+                        <Path Data="{StaticResource IcoClose}" Width="14" Height="14" />
+                    </Button>
+                </Grid>
+            </Border>
+        </DataTemplate>
+
+        <!-- Editable string row (folders, urls) -->
+        <DataTemplate x:Key="StringRowEditable">
+            <Border Style="{StaticResource Row}">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Text="{Binding}" VerticalAlignment="Center"
+                               TextTrimming="CharacterEllipsis" />
+                    <Button Grid.Column="1" Style="{StaticResource IconBtn}"
+                            Tag="{Binding}" Click="RemoveString_Click" ToolTip="Remove">
+                        <Path Data="{StaticResource IcoClose}" Width="14" Height="14" />
+                    </Button>
+                </Grid>
+            </Border>
+        </DataTemplate>
+
+        <DataTemplate x:Key="StringRowReadonly">
+            <Border Style="{StaticResource Row}">
+                <TextBlock Text="{Binding}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
+            </Border>
+        </DataTemplate>
+
+        <!-- Icon-cluster item (small app icon) -->
+        <DataTemplate x:Key="IconClusterItem">
+            <Border Width="26" Height="26" CornerRadius="7" Margin="0,0,6,0"
+                    Background="{DynamicResource CardBrush}" BorderBrush="{DynamicResource StrokeBrush}"
+                    BorderThickness="1">
+                <Image Source="{Binding}" Width="15" Height="15"
+                       RenderOptions.BitmapScalingMode="HighQuality" />
+            </Border>
+        </DataTemplate>
+    </Window.Resources>
+
+    <Grid>
+        <!-- =============================================================
+             THREE-COLUMN SHELL: sidebar · center · right context
+             ============================================================= -->
+        <Grid>
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition x:Name="SidebarCol" Width="216" />
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition x:Name="RightCol" Width="0" />
+            </Grid.ColumnDefinitions>
+
+            <!-- ===================== Sidebar ===================== -->
+            <Border Grid.Column="0" Background="{DynamicResource PanelBrush}"
+                    BorderBrush="{DynamicResource StrokeSoftBrush}" BorderThickness="0,0,1,0">
+                <DockPanel Margin="14,18,14,14">
+                    <!-- Brand -->
+                    <StackPanel x:Name="BrandRow" DockPanel.Dock="Top" Orientation="Horizontal" Margin="4,0,0,22">
+                        <Border Width="30" Height="30" CornerRadius="8" Background="{DynamicResource AccentBrush}">
+                            <Image x:Name="BrandLogoImage" Width="18" Height="18" Stretch="Uniform"
+                                   RenderOptions.BitmapScalingMode="HighQuality" />
+                        </Border>
+                        <TextBlock x:Name="BrandText" Text="Deskify" FontSize="16" FontWeight="SemiBold"
+                                   VerticalAlignment="Center" Margin="11,0,0,0" />
+                    </StackPanel>
+
+                    <!-- Collapse -->
+                    <Button x:Name="CollapseBtn" DockPanel.Dock="Bottom" Style="{StaticResource NavBtn}"
+                            HorizontalContentAlignment="Stretch"
+                            Click="Collapse_Click" ToolTip="Collapse sidebar">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <Path x:Name="CollapseIcon" Grid.Column="0" Data="{StaticResource IcoChevronLeft}"
+                                  Width="18" Height="18" VerticalAlignment="Center" />
+                            <TextBlock x:Name="LblCollapse" Grid.Column="1" Text="Collapse"
+                                       HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        </Grid>
+                    </Button>
+
+                    <!-- Nav -->
+                    <StackPanel DockPanel.Dock="Top">
+                        <Button x:Name="NavProjects" Style="{StaticResource NavBtn}" Click="NavProjects_Click" Margin="0,0,0,4">
+                            <StackPanel Orientation="Horizontal">
+                                <Path Data="{StaticResource IcoLayers}" Width="19" Height="19" />
+                                <TextBlock x:Name="LblProjects" Text="Projects" Margin="12,0,0,0" VerticalAlignment="Center" />
+                            </StackPanel>
+                        </Button>
+                        <Button x:Name="NavSettings" Style="{StaticResource NavBtn}" Click="NavSettings_Click">
+                            <StackPanel Orientation="Horizontal">
+                                <Path Data="{StaticResource IcoSliders}" Width="19" Height="19" />
+                                <TextBlock x:Name="LblSettings" Text="Settings" Margin="12,0,0,0" VerticalAlignment="Center" />
+                            </StackPanel>
+                        </Button>
+                    </StackPanel>
+
+                    <Grid />
+                </DockPanel>
+            </Border>
+
+            <!-- ===================== Center ===================== -->
+            <Grid Grid.Column="1">
+
+                <!-- Projects list (home) -->
+                <Grid x:Name="ProjectsView" Margin="32,20,32,20">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                    </Grid.RowDefinitions>
+
+                    <Grid Grid.Row="0" Margin="0,0,0,16">
+                        <StackPanel VerticalAlignment="Center">
+                            <TextBlock Text="Projects" Style="{StaticResource H1}" />
+                            <TextBlock x:Name="ProjectCount" Style="{StaticResource Muted}" Margin="0,2,0,0" FontSize="12" />
+                        </StackPanel>
+                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
+                            <Button x:Name="CaptureBtn" Click="NewCapture_Click" Margin="0,0,8,0" ToolTip="Build a project from windows open right now">
+                                <StackPanel Orientation="Horizontal">
+                                    <Path Data="{StaticResource IcoMonitor}" Width="15" Height="15" />
+                                    <TextBlock Text="Capture session" Margin="8,0,0,0" VerticalAlignment="Center" />
+                                </StackPanel>
+                            </Button>
+                            <Button x:Name="NewProjectBtn" Style="{StaticResource AccentBtn}" Click="NewProject_Click">
+                                <StackPanel Orientation="Horizontal">
+                                    <Path Data="{StaticResource IcoPlus}" Width="15" Height="15"
+                                          Stroke="{DynamicResource AccentTextBrush}" />
+                                    <TextBlock Text="New Project" Margin="8,0,0,0" VerticalAlignment="Center" />
+                                </StackPanel>
+                            </Button>
+                        </StackPanel>
+                    </Grid>
+
+                    <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" Padding="0,0,6,0">
+                        <StackPanel>
+                            <ItemsControl x:Name="ProjectRows">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <Border Style="{StaticResource RowHover}" Padding="20,18" Margin="0,0,0,10" Cursor="Hand"
+                                                Tag="{Binding Project}" MouseLeftButtonUp="ProjectRow_Click">
+                                            <Grid>
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="*" />
+                                                    <ColumnDefinition Width="Auto" />
+                                                    <ColumnDefinition Width="Auto" />
+                                                    <ColumnDefinition Width="Auto" />
+                                                </Grid.ColumnDefinitions>
+                                                <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                                    <StackPanel Orientation="Horizontal">
+                                                        <Path x:Name="PinnedMark" Data="{StaticResource IcoPin}" Width="11" Height="11"
+                                                              Margin="0,0,6,0" VerticalAlignment="Center" Visibility="Collapsed" />
+                                                        <TextBlock Text="{Binding Name}" FontSize="17" FontWeight="SemiBold"
+                                                                   TextTrimming="CharacterEllipsis" />
+                                                    </StackPanel>
+                                                    <StackPanel Orientation="Horizontal" Margin="0,5,0,0">
+                                                        <TextBlock Text="{Binding SummaryText}" Style="{StaticResource Muted}" FontSize="12" />
+                                                        <TextBlock Text="  ·  " Style="{StaticResource Muted}" FontSize="12" />
+                                                        <TextBlock Text="{Binding LastUsedText}" Style="{StaticResource Muted}" FontSize="12" />
+                                                    </StackPanel>
+                                                </StackPanel>
+                                                <ItemsControl Grid.Column="1" ItemsSource="{Binding Icons}"
+                                                              ItemTemplate="{StaticResource IconClusterItem}"
+                                                              VerticalAlignment="Center" Margin="16,0,14,0">
+                                                    <ItemsControl.ItemsPanel>
+                                                        <ItemsPanelTemplate><StackPanel Orientation="Horizontal" /></ItemsPanelTemplate>
+                                                    </ItemsControl.ItemsPanel>
+                                                </ItemsControl>
+                                                <Button Grid.Column="2" Style="{StaticResource IconBtn}"
+                                                        VerticalAlignment="Center" Margin="0,0,14,0"
+                                                        Tag="{Binding Project}" Click="TogglePin_Click" ToolTip="Pin project">
+                                                    <Path x:Name="PinIcon" Data="{StaticResource IcoPin}" Width="15" Height="15" />
+                                                </Button>
+                                                <Button Grid.Column="3" Style="{StaticResource RowLaunchBtn}"
+                                                        VerticalAlignment="Center" Tag="{Binding Project}" Click="RowLaunch_Click">
+                                                    <StackPanel Orientation="Horizontal">
+                                                        <Path Data="{StaticResource IcoPlay}" Width="13" Height="13"
+                                                              Stroke="{DynamicResource AccentTextBrush}" />
+                                                        <TextBlock Text="Launch" Margin="8,0,0,0" VerticalAlignment="Center" FontWeight="SemiBold" />
+                                                    </StackPanel>
+                                                </Button>
+                                            </Grid>
+                                        </Border>
+                                        <DataTemplate.Triggers>
+                                            <DataTrigger Binding="{Binding Pinned}" Value="True">
+                                                <Setter TargetName="PinnedMark" Property="Visibility" Value="Visible" />
+                                                <Setter TargetName="PinnedMark" Property="Stroke" Value="{DynamicResource AccentBrush}" />
+                                                <Setter TargetName="PinIcon" Property="Stroke" Value="{DynamicResource AccentBrush}" />
+                                            </DataTrigger>
+                                        </DataTemplate.Triggers>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+
+                            <!-- Empty state -->
+                            <StackPanel x:Name="ProjectsEmpty" Margin="0,80,0,0" HorizontalAlignment="Center"
+                                        Visibility="Collapsed">
+                                <Border Width="52" Height="52" CornerRadius="14" Background="{DynamicResource CardBrush}"
+                                        BorderBrush="{DynamicResource StrokeBrush}" BorderThickness="1"
+                                        HorizontalAlignment="Center">
+                                    <Image x:Name="EmptyStateLogoImage" Width="28" Height="28" Stretch="Uniform"
+                                           RenderOptions.BitmapScalingMode="HighQuality" />
+                                </Border>
+                                <TextBlock Text="No projects yet" Style="{StaticResource H2}"
+                                           HorizontalAlignment="Center" Margin="0,16,0,0" />
+                                <TextBlock Text="Use New Project above to create your first workspace."
+                                           Style="{StaticResource Muted}" HorizontalAlignment="Center"
+                                           TextWrapping="Wrap" TextAlignment="Center" MaxWidth="320" Margin="0,6,0,0" />
+                            </StackPanel>
+                        </StackPanel>
+                    </ScrollViewer>
+                </Grid>
+
+                <!-- Project detail -->
+                <ScrollViewer x:Name="DetailView" Visibility="Collapsed" VerticalScrollBarVisibility="Auto"
+                              Padding="32,20,32,28">
+                    <StackPanel MaxWidth="720" HorizontalAlignment="Stretch">
+                        <Button Style="{StaticResource GhostBtn}" HorizontalAlignment="Left" Padding="6,4"
+                                Margin="-6,0,0,10" Click="BackToList_Click">
+                            <StackPanel Orientation="Horizontal">
+                                <Path Data="{StaticResource IcoChevronLeft}" Width="15" Height="15" />
+                                <TextBlock Text="Projects" Margin="4,0,0,0" VerticalAlignment="Center" />
+                            </StackPanel>
+                        </Button>
+
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <StackPanel VerticalAlignment="Center">
+                                <TextBlock x:Name="DetailName" Style="{StaticResource H1}" Text="Project" />
+                                <TextBlock x:Name="DetailMeta" Style="{StaticResource Muted}" Margin="0,4,0,0" FontSize="12" />
+                            </StackPanel>
+                            <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                                <Button x:Name="CloseOthersBtn" Click="CloseOthers_Click" Margin="0,0,8,0" ToolTip="Close every open app except this project's">
+                                    <StackPanel Orientation="Horizontal">
+                                        <Path Data="{StaticResource IcoCloseWindow}" Width="14" Height="14" />
+                                        <TextBlock Text="Close Other Apps" Margin="7,0,0,0" VerticalAlignment="Center" />
+                                    </StackPanel>
+                                </Button>
+                                <Button x:Name="LaunchBtn" Click="Launch_Click">
+                                    <StackPanel Orientation="Horizontal">
+                                        <Path Data="{StaticResource IcoPlay}" Width="13" Height="13" />
+                                        <TextBlock Text="Launch" Margin="8,0,0,0" VerticalAlignment="Center" />
+                                    </StackPanel>
+                                </Button>
+                            </StackPanel>
+                        </Grid>
+
+                        <ItemsControl x:Name="DetailIcons" ItemTemplate="{StaticResource IconClusterItem}" Margin="0,16,0,0">
+                            <ItemsControl.ItemsPanel>
+                                <ItemsPanelTemplate><StackPanel Orientation="Horizontal" /></ItemsPanelTemplate>
+                            </ItemsControl.ItemsPanel>
+                        </ItemsControl>
+
+                        <!-- Layout controls -->
+                        <Border Style="{StaticResource Card}" Margin="0,20,0,0">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <StackPanel VerticalAlignment="Center">
+                                    <TextBlock Text="Window layout" Style="{StaticResource H2}" />
+                                    <TextBlock x:Name="LayoutModeText" Style="{StaticResource Muted}" FontSize="12"
+                                               Margin="0,3,0,0" />
+                                </StackPanel>
+                                <Button Grid.Column="1" x:Name="EditLayoutBtn" Click="EditLayout_Click" VerticalAlignment="Center">
+                                    <StackPanel Orientation="Horizontal">
+                                        <Path Data="{StaticResource IcoLayout}" Width="15" Height="15" />
+                                        <TextBlock Text="Edit Layout" Margin="8,0,0,0" VerticalAlignment="Center" />
+                                    </StackPanel>
+                                </Button>
+                            </Grid>
+                        </Border>
+
+                        <TextBlock x:Name="StatusText" Margin="2,14,0,0" Style="{StaticResource Dim}" FontSize="12"
+                                   TextWrapping="Wrap" />
+                        <ItemsControl x:Name="ErrorList" Margin="2,4,0,0">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <TextBlock Text="{Binding}" Foreground="{DynamicResource DangerBrush}"
+                                               FontSize="12" TextWrapping="Wrap" Margin="0,1" />
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </StackPanel>
+                </ScrollViewer>
+
+                <!-- Create / edit wizard -->
+                <ScrollViewer x:Name="EditView" Visibility="Collapsed" VerticalScrollBarVisibility="Auto"
+                              Padding="32,20,32,28">
+                    <StackPanel MaxWidth="640">
+                        <TextBlock x:Name="EditTitle" Style="{StaticResource H1}" Text="New Project" />
+                        <TextBlock x:Name="StepLabel" Style="{StaticResource Muted}" FontSize="12" Margin="0,4,0,14" />
+
+                        <!-- Progress segments -->
+                        <Grid Margin="0,0,0,26">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <Border x:Name="Seg1" Grid.Column="0" Height="4" CornerRadius="2" Margin="0,0,4,0"
+                                    Background="{DynamicResource AccentBrush}" />
+                            <Border x:Name="Seg2" Grid.Column="1" Height="4" CornerRadius="2" Margin="4,0"
+                                    Background="{DynamicResource StrokeBrush}" />
+                            <Border x:Name="Seg3" Grid.Column="2" Height="4" CornerRadius="2" Margin="4,0"
+                                    Background="{DynamicResource StrokeBrush}" />
+                            <Border x:Name="Seg4" Grid.Column="3" Height="4" CornerRadius="2" Margin="4,0,0,0"
+                                    Background="{DynamicResource StrokeBrush}" />
+                        </Grid>
+
+                        <!-- Step 1: Name -->
+                        <StackPanel x:Name="StepName">
+                            <TextBlock Text="Name your project" Style="{StaticResource H2}" />
+                            <TextBlock Text="Give this project a short, recognizable name."
+                                       Style="{StaticResource Muted}" FontSize="12" Margin="0,4,0,14" />
+                            <TextBox x:Name="EditName" FontSize="15" Padding="12,10" />
+                        </StackPanel>
+
+                        <!-- Step 2: Apps -->
+                        <StackPanel x:Name="StepApps" Visibility="Collapsed">
+                            <TextBlock Text="Add applications" Style="{StaticResource H2}" />
+                            <TextBlock Text="Choose installed programs or pick from windows open right now."
+                                       Style="{StaticResource Muted}" FontSize="12" Margin="0,4,0,14" />
+                            <ItemsControl x:Name="EditApps" ItemTemplate="{StaticResource AppRowEditable}" />
+                            <StackPanel Orientation="Horizontal" Margin="0,4,0,0">
+                                <Button Click="AddApp_Click" Margin="0,0,8,0">
+                                    <StackPanel Orientation="Horizontal">
+                                        <Path Data="{StaticResource IcoPlus}" Width="14" Height="14" />
+                                        <TextBlock Text="Add app" Margin="7,0,0,0" VerticalAlignment="Center" />
+                                    </StackPanel>
+                                </Button>
+                                <Button Click="AddRunning_Click">
+                                    <StackPanel Orientation="Horizontal">
+                                        <Path Data="{StaticResource IcoWindow}" Width="14" Height="14" />
+                                        <TextBlock Text="Add running apps" Margin="7,0,0,0" VerticalAlignment="Center" />
+                                    </StackPanel>
+                                </Button>
+                            </StackPanel>
+                        </StackPanel>
+
+                        <!-- Step 3: Folders -->
+                        <StackPanel x:Name="StepFolders" Visibility="Collapsed">
+                            <TextBlock Text="Add folders" Style="{StaticResource H2}" />
+                            <TextBlock Text="These open in File Explorer when the project launches."
+                                       Style="{StaticResource Muted}" FontSize="12" Margin="0,4,0,14" />
+                            <ItemsControl x:Name="EditFolders" ItemTemplate="{StaticResource StringRowEditable}" />
+                            <Button HorizontalAlignment="Left" Margin="0,4,0,0" Click="AddFolder_Click">
+                                <StackPanel Orientation="Horizontal">
+                                    <Path Data="{StaticResource IcoFolder}" Width="14" Height="14" />
+                                    <TextBlock Text="Add folder" Margin="7,0,0,0" VerticalAlignment="Center" />
+                                </StackPanel>
+                            </Button>
+                        </StackPanel>
+
+                        <!-- Step 4: Websites -->
+                        <StackPanel x:Name="StepWebsites" Visibility="Collapsed">
+                            <TextBlock Text="Add websites" Style="{StaticResource H2}" />
+                            <TextBlock Text="Opened in your default browser on launch."
+                                       Style="{StaticResource Muted}" FontSize="12" Margin="0,4,0,14" />
+                            <ItemsControl x:Name="EditUrls" ItemTemplate="{StaticResource StringRowEditable}" />
+                            <Grid Margin="0,4,0,0">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <TextBox x:Name="UrlBox" KeyDown="UrlBox_KeyDown" />
+                                <TextBlock Text="example.com" Margin="11,0,0,0"
+                                           IsHitTestVisible="False" VerticalAlignment="Center">
+                                    <TextBlock.Style>
+                                        <Style TargetType="TextBlock">
+                                            <Setter Property="Foreground" Value="{DynamicResource TextMutedBrush}" />
+                                            <Setter Property="Visibility" Value="Collapsed" />
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding Text, ElementName=UrlBox}" Value="">
+                                                    <Setter Property="Visibility" Value="Visible" />
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </TextBlock.Style>
+                                </TextBlock>
+                                <Button Grid.Column="1" Content="Add" Margin="8,0,0,0" Click="AddUrl_Click" />
+                            </Grid>
+                            <TextBlock x:Name="UrlHint" Foreground="{DynamicResource DangerBrush}" FontSize="12"
+                                       Margin="2,6,0,0" TextWrapping="Wrap" Visibility="Collapsed" />
+                            <CheckBox x:Name="StrictCheck" Margin="0,20,0,0">
+                                <TextBlock Text="Lock window positions (fixes them again if an app moves itself after opening)"
+                                           TextWrapping="Wrap" />
+                            </CheckBox>
+                        </StackPanel>
+
+                        <!-- Wizard nav -->
+                        <Grid Margin="0,30,0,0">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <Button x:Name="WizardBack" Style="{StaticResource GhostBtn}" Click="WizardBack_Click">
+                                <StackPanel Orientation="Horizontal">
+                                    <Path Data="{StaticResource IcoChevronLeft}" Width="15" Height="15" />
+                                    <TextBlock Text="Back" Margin="4,0,0,0" VerticalAlignment="Center" />
+                                </StackPanel>
+                            </Button>
+                            <Button Grid.Column="2" x:Name="CancelWizardBtn" Style="{StaticResource GhostBtn}"
+                                    Content="Cancel" Margin="0,0,8,0" Click="CancelEdit_Click" />
+                            <Button Grid.Column="3" x:Name="WizardNext" Style="{StaticResource AccentBtn}"
+                                    MinWidth="104" Click="WizardNext_Click" />
+                        </Grid>
+                    </StackPanel>
+                </ScrollViewer>
+
+                <!-- Settings -->
+                <ScrollViewer x:Name="SettingsView" Visibility="Collapsed" VerticalScrollBarVisibility="Auto"
+                              Padding="32,20,32,28">
+                    <StackPanel MaxWidth="580" HorizontalAlignment="Left">
+                        <TextBlock Text="Settings" Style="{StaticResource H1}" />
+
+                        <TextBlock Text="Appearance" Style="{StaticResource Eyebrow}" Margin="0,24,0,8" />
+                        <Border Style="{StaticResource Card}">
+                            <StackPanel>
+                                <TextBlock Text="Theme" />
+                                <TextBlock Text="Dark or light — applies instantly."
+                                           Style="{StaticResource Muted}" FontSize="11" Margin="0,2,0,16" />
+                                <ItemsControl x:Name="ThemeList">
+                                    <ItemsControl.ItemsPanel>
+                                        <ItemsPanelTemplate><StackPanel Orientation="Horizontal" /></ItemsPanelTemplate>
+                                    </ItemsControl.ItemsPanel>
+                                </ItemsControl>
+                            </StackPanel>
+                        </Border>
+
+                        <TextBlock Text="Launching" Style="{StaticResource Eyebrow}" Margin="0,20,0,8" />
+                        <Border Style="{StaticResource Card}">
+                            <StackPanel>
+                                <Grid Margin="0,0,0,14">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="92" />
+                                    </Grid.ColumnDefinitions>
+                                    <StackPanel VerticalAlignment="Center" Margin="0,0,14,0">
+                                        <TextBlock Text="How long to wait for apps (seconds)" />
+                                        <TextBlock Text="If an app takes longer than this to open, Deskify stops waiting for it."
+                                                   Style="{StaticResource Muted}" FontSize="11" Margin="0,2,0,0"
+                                                   TextWrapping="Wrap" />
+                                    </StackPanel>
+                                    <TextBox x:Name="TimeoutBox" Grid.Column="1" TextAlignment="Center"
+                                             VerticalAlignment="Center" />
+                                </Grid>
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="92" />
+                                    </Grid.ColumnDefinitions>
+                                    <StackPanel VerticalAlignment="Center" Margin="0,0,14,0">
+                                        <TextBlock Text="Check-in speed (ms)" />
+                                        <TextBlock Text="How often Deskify checks if apps have opened yet. Lower is faster to react, higher is easier on your PC."
+                                                   Style="{StaticResource Muted}" FontSize="11" Margin="0,2,0,0"
+                                                   TextWrapping="Wrap" />
+                                    </StackPanel>
+                                    <TextBox x:Name="RetryBox" Grid.Column="1" TextAlignment="Center"
+                                             VerticalAlignment="Center" />
+                                </Grid>
+                            </StackPanel>
+                        </Border>
+
+                        <TextBlock Text="Window snapping" Style="{StaticResource Eyebrow}" Margin="0,20,0,8" />
+                        <Border Style="{StaticResource Card}">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="92" />
+                                </Grid.ColumnDefinitions>
+                                <StackPanel VerticalAlignment="Center" Margin="0,0,14,0">
+                                    <TextBlock Text="Snap size (px)" />
+                                    <TextBlock Text="While arranging a layout with Snap turned on, windows line up to this spacing."
+                                               Style="{StaticResource Muted}" FontSize="11" Margin="0,2,0,0"
+                                               TextWrapping="Wrap" />
+                                </StackPanel>
+                                <TextBox x:Name="SnapSizeBox" Grid.Column="1" TextAlignment="Center"
+                                         VerticalAlignment="Center" />
+                            </Grid>
+                        </Border>
+
+                        <TextBlock Text="Defaults" Style="{StaticResource Eyebrow}" Margin="0,20,0,8" />
+                        <Border Style="{StaticResource Card}">
+                            <StackPanel>
+                                <CheckBox x:Name="StrictDefaultCheck"
+                                          Content="New projects lock window positions by default" />
+                                <CheckBox x:Name="ConfirmCloseOthersCheck" Margin="0,12,0,0"
+                                          Content="Ask before closing other apps" />
+                            </StackPanel>
+                        </Border>
+
+                        <TextBlock Text="Quick switch" Style="{StaticResource Eyebrow}" Margin="0,20,0,8" />
+                        <Border Style="{StaticResource Card}">
+                            <StackPanel>
+                                <TextBlock Text="Ctrl + Space" FontWeight="SemiBold" />
+                                <TextBlock Text="Opens the project switcher from anywhere, even while Deskify is in the background. Type to search, press Enter or click to launch, Esc to close."
+                                           Style="{StaticResource Muted}" FontSize="11" Margin="0,4,0,0"
+                                           TextWrapping="Wrap" />
+                            </StackPanel>
+                        </Border>
+
+                        <TextBlock Text="Anti-cheat safety" Style="{StaticResource Eyebrow}" Margin="0,20,0,8" />
+                        <Border Style="{StaticResource Card}">
+                            <StackPanel>
+                                <TextBlock Text="Riot Games apps are never touched" FontWeight="SemiBold" />
+                                <TextBlock Style="{StaticResource Muted}" FontSize="11" Margin="0,4,0,0"
+                                           TextWrapping="Wrap"
+                                           Text="Riot Client, VALORANT, League of Legends, and Vanguard are permanently excluded from capture, layout matching, positioning, and Close Other Apps. Vanguard's anti-cheat can flag external window control as tampering, which risks your account — Deskify won't go near it, by design, not by accident." />
+                            </StackPanel>
+                        </Border>
+
+                        <StackPanel Orientation="Horizontal" Margin="0,20,0,0">
+                            <Button Content="Save Settings" Style="{StaticResource AccentBtn}"
+                                    Click="SaveSettings_Click" Margin="0,0,8,0" />
+                            <Button Content="Open Data Folder" Click="OpenDataFolder_Click" />
+                        </StackPanel>
+                        <TextBlock x:Name="SettingsStatus" Style="{StaticResource Dim}" FontSize="12" Margin="2,12,0,0" />
+                        <TextBlock Text="Deskify 0.1.0" Style="{StaticResource Muted}" FontSize="11" Margin="2,28,0,0" />
+                    </StackPanel>
+                </ScrollViewer>
+            </Grid>
+
+            <!-- ===================== Right context ===================== -->
+            <Border x:Name="RightPanel" Grid.Column="2" Background="{DynamicResource PanelBrush}"
+                    BorderBrush="{DynamicResource StrokeSoftBrush}" BorderThickness="1,0,0,0"
+                    Visibility="Collapsed">
+                <DockPanel Margin="18,22,18,18">
+                    <TextBlock DockPanel.Dock="Top" Text="Contents" Style="{StaticResource Eyebrow}" />
+
+                    <StackPanel DockPanel.Dock="Bottom" Margin="0,14,0,0">
+                        <Button Click="EditProject_Click" Margin="0,0,0,6" HorizontalContentAlignment="Left">
+                            <StackPanel Orientation="Horizontal">
+                                <Path Data="{StaticResource IcoPencil}" Width="15" Height="15" />
+                                <TextBlock Text="Edit project" Margin="9,0,0,0" VerticalAlignment="Center" />
+                            </StackPanel>
+                        </Button>
+                        <Button Click="DuplicateProject_Click" Margin="0,0,0,6" HorizontalContentAlignment="Left">
+                            <StackPanel Orientation="Horizontal">
+                                <Path Data="{StaticResource IcoCopy}" Width="15" Height="15" />
+                                <TextBlock Text="Duplicate" Margin="9,0,0,0" VerticalAlignment="Center" />
+                            </StackPanel>
+                        </Button>
+                        <Button Style="{StaticResource DangerBtn}" HorizontalContentAlignment="Left"
+                                Click="DeleteProject_Click">
+                            <StackPanel Orientation="Horizontal">
+                                <Path Data="{StaticResource IcoTrash}" Width="15" Height="15"
+                                      Stroke="{DynamicResource DangerBrush}" />
+                                <TextBlock Text="Delete" Margin="9,0,0,0" VerticalAlignment="Center" />
+                            </StackPanel>
+                        </Button>
+                    </StackPanel>
+
+                    <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="0,0,4,0">
+                        <StackPanel>
+                            <TextBlock Text="Notes" Style="{StaticResource Eyebrow}" Margin="0,8,0,6" />
+                            <TextBox x:Name="DetailNotes" AcceptsReturn="True" TextWrapping="Wrap"
+                                     MinHeight="72" MaxHeight="200" VerticalScrollBarVisibility="Auto"
+                                     VerticalContentAlignment="Top" FontSize="12"
+                                     LostFocus="DetailNotes_LostFocus" />
+
+                            <TextBlock Text="Apps" Style="{StaticResource Eyebrow}" Margin="0,18,0,6" />
+                            <ItemsControl x:Name="DetailApps" ItemTemplate="{StaticResource AppRowReadonly}" />
+                            <TextBlock x:Name="DetailAppsEmpty" Text="No apps." Style="{StaticResource Muted}" FontSize="12" />
+
+                            <TextBlock Text="Websites" Style="{StaticResource Eyebrow}" Margin="0,16,0,6" />
+                            <ItemsControl x:Name="DetailUrls" ItemTemplate="{StaticResource StringRowReadonly}" />
+                            <TextBlock x:Name="DetailUrlsEmpty" Text="No websites." Style="{StaticResource Muted}" FontSize="12" />
+
+                            <TextBlock Text="Folders" Style="{StaticResource Eyebrow}" Margin="0,16,0,6" />
+                            <ItemsControl x:Name="DetailFolders" ItemTemplate="{StaticResource StringRowReadonly}" />
+                            <TextBlock x:Name="DetailFoldersEmpty" Text="No folders." Style="{StaticResource Muted}" FontSize="12" />
+                        </StackPanel>
+                    </ScrollViewer>
+                </DockPanel>
+            </Border>
+        </Grid>
+
+        <!-- ===================== Floating layout toolbar ===================== -->
+        <Border x:Name="LayoutToolbar" Visibility="Collapsed" VerticalAlignment="Bottom"
+                HorizontalAlignment="Center" Margin="0,0,0,30" CornerRadius="12"
+                Background="{DynamicResource CardBrush}" BorderBrush="{DynamicResource StrokeBrush}"
+                BorderThickness="1" Padding="10,9">
+            <Border.Effect>
+                <DropShadowEffect BlurRadius="28" ShadowDepth="6" Direction="270" Opacity="0.45" Color="#000000" />
+            </Border.Effect>
+            <StackPanel Orientation="Horizontal">
+                <Path Data="{StaticResource IcoLayout}" Width="16" Height="16"
+                      Stroke="{DynamicResource AccentBrush}" VerticalAlignment="Center" Margin="4,0,0,0" />
+                <TextBlock x:Name="LayoutHint" Text="Arrange your windows, then save" VerticalAlignment="Center"
+                           Margin="10,0,14,0" FontSize="12.5" Foreground="{DynamicResource TextDimBrush}" />
+                <Border Width="1" Background="{DynamicResource StrokeBrush}" Margin="0,2,10,2" />
+                <Button x:Name="SnapToggle" Style="{StaticResource GhostBtn}" Click="SnapToggle_Click"
+                        Margin="0,0,4,0" ToolTip="Snap saved positions to the grid">
+                    <StackPanel Orientation="Horizontal">
+                        <Path Data="{StaticResource IcoGrid}" Width="15" Height="15" />
+                        <TextBlock Text="Snap" Margin="7,0,0,0" VerticalAlignment="Center" />
+                    </StackPanel>
+                </Button>
+                <Button x:Name="ResetLayoutBtn" Style="{StaticResource GhostBtn}" Click="CancelLayout_Click"
+                        Margin="0,0,6,0">
+                    <StackPanel Orientation="Horizontal">
+                        <Path Data="{StaticResource IcoRefresh}" Width="15" Height="15" />
+                        <TextBlock Text="Reset" Margin="7,0,0,0" VerticalAlignment="Center" />
+                    </StackPanel>
+                </Button>
+                <Button x:Name="SaveLayoutBtn" Style="{StaticResource AccentBtn}" Click="SaveLayout_Click">
+                    <StackPanel Orientation="Horizontal">
+                        <Path Data="{StaticResource IcoSave}" Width="15" Height="15"
+                              Stroke="{DynamicResource AccentTextBrush}" />
+                        <TextBlock Text="Save Layout" Margin="8,0,0,0" VerticalAlignment="Center" />
+                    </StackPanel>
+                </Button>
+            </StackPanel>
+        </Border>
+    </Grid>
+</Window>

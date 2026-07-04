@@ -1,0 +1,42 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <!-- Plain net8.0-windows: WPF + Win32 P/Invoke only. No WinForms, no WinRT. -->
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <RootNamespace>Deskify</RootNamespace>
+    <AssemblyName>Deskify</AssemblyName>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <LangVersion>latest</LangVersion>
+    <UseWPF>true</UseWPF>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <!-- Multi-size icon (16–256px): exe, taskbar, window chrome, and shortcuts
+         all pick this up automatically. Regenerate via the tiles design in
+         Styles.xaml (IcoDeskify) if the brand ever changes. -->
+    <ApplicationIcon>Assets\deskify.ico</ApplicationIcon>
+
+    <Product>Deskify</Product>
+    <AssemblyTitle>Deskify</AssemblyTitle>
+    <Version>0.1.0</Version>
+    <FileVersion>0.1.0.0</FileVersion>
+    <Description>Workspace automation: save and restore your entire desktop environment in one click.</Description>
+
+    <!-- Keep footprint small and startup fast. -->
+    <SelfContained>false</SelfContained>
+    <PublishSingleFile>false</PublishSingleFile>
+    <TieredCompilation>true</TieredCompilation>
+    <TieredCompilationQuickJit>true</TieredCompilationQuickJit>
+    <ServerGarbageCollection>false</ServerGarbageCollection>
+    <ConcurrentGarbageCollection>false</ConcurrentGarbageCollection>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- ApplicationIcon above only embeds this as the Win32 exe icon — it doesn't
+         make the file reachable via a WPF pack URI. This makes it available at
+         pack://application:,,,/Assets/deskify.ico for Window.Icon and IconLoader
+         .GetAppLogo, so the sidebar/window/taskbar icons all resolve to the same file. -->
+    <Resource Include="Assets\deskify.ico" />
+  </ItemGroup>
+
+</Project>
