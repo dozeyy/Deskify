@@ -10,3 +10,9 @@ installer/Deskify.Setup/payload/*.zip
 # IDE
 .vs/
 *.user
+
+# macOS app build output
+macos/.build/
+macos/build/
+macos/.swiftpm/
+.DS_Store
