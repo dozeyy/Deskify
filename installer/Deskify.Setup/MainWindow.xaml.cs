@@ -3,6 +3,8 @@ using System.IO.Compression;
 using System.Reflection;
 using System.Windows;
 using System.Windows.Input;
+using System.Windows.Media;
+using System.Windows.Media.Animation;
 using Microsoft.Win32;
 
 namespace Deskify.Setup;
@@ -13,6 +15,8 @@ public partial class MainWindow : Window
     private const string RunKeyName = "Deskify";
     private const string UninstallKeyPath =
         @"Software\Microsoft\Windows\CurrentVersion\Uninstall\Deskify";
+
+    private bool _closing;
 
     private readonly string _installDir =
         Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
@@ -31,9 +35,65 @@ public partial class MainWindow : Window
         {
             if (e.ButtonState == MouseButtonState.Pressed) DragMove();
         };
+
+        Loaded += (_, _) => AnimateIn();
     }
 
-    private void CloseBtn_Click(object sender, RoutedEventArgs e) => Close();
+    // ==================== Window intro / outro ====================
+
+    private static readonly IEasingFunction EaseOut = new CubicEase { EasingMode = EasingMode.EaseOut };
+
+    /// <summary>Fade + a gentle scale-up as the window appears.</summary>
+    private void AnimateIn()
+    {
+        BeginAnimation(OpacityProperty, new DoubleAnimation(0, 1, TimeSpan.FromSeconds(0.20)) { EasingFunction = EaseOut });
+        var scale = (ScaleTransform)Root.RenderTransform;
+        var pop = new DoubleAnimation(0.97, 1, TimeSpan.FromSeconds(0.24)) { EasingFunction = EaseOut };
+        scale.BeginAnimation(ScaleTransform.ScaleXProperty, pop);
+        scale.BeginAnimation(ScaleTransform.ScaleYProperty, pop);
+    }
+
+    /// <summary>Fade + settle back down, then actually close. Guarded so the same
+    /// click can't kick off two closes.</summary>
+    private void AnimateOutAndClose()
+    {
+        if (_closing) return;
+        _closing = true;
+
+        var scale = (ScaleTransform)Root.RenderTransform;
+        var shrink = new DoubleAnimation(1, 0.97, TimeSpan.FromSeconds(0.14)) { EasingFunction = EaseOut };
+        scale.BeginAnimation(ScaleTransform.ScaleXProperty, shrink);
+        scale.BeginAnimation(ScaleTransform.ScaleYProperty, shrink);
+
+        var fade = new DoubleAnimation(1, 0, TimeSpan.FromSeconds(0.14)) { EasingFunction = EaseOut };
+        fade.Completed += (_, _) => Close();
+        BeginAnimation(OpacityProperty, fade);
+    }
+
+    /// <summary>Cross-fade between two setup pages: the outgoing one fades away
+    /// while the incoming one fades and rises into place.</summary>
+    private static void SwapPage(FrameworkElement from, FrameworkElement to)
+    {
+        to.Opacity = 0;
+        to.Visibility = Visibility.Visible;
+        var slide = new TranslateTransform(0, 12);
+        to.RenderTransform = slide;
+        slide.BeginAnimation(TranslateTransform.YProperty,
+            new DoubleAnimation(12, 0, TimeSpan.FromSeconds(0.24)) { EasingFunction = EaseOut });
+        to.BeginAnimation(OpacityProperty,
+            new DoubleAnimation(0, 1, TimeSpan.FromSeconds(0.24)) { EasingFunction = EaseOut });
+
+        var fadeOut = new DoubleAnimation(from.Opacity, 0, TimeSpan.FromSeconds(0.14)) { EasingFunction = EaseOut };
+        fadeOut.Completed += (_, _) =>
+        {
+            from.BeginAnimation(OpacityProperty, null);
+            from.Opacity = 1;
+            from.Visibility = Visibility.Collapsed;
+        };
+        from.BeginAnimation(OpacityProperty, fadeOut);
+    }
+
+    private void CloseBtn_Click(object sender, RoutedEventArgs e) => AnimateOutAndClose();
 
     private async void InstallBtn_Click(object sender, RoutedEventArgs e)
     {
@@ -41,9 +101,9 @@ public partial class MainWindow : Window
         bool startOnStartup = OptStartup.IsChecked == true;
         bool launchAfter = OptLaunch.IsChecked == true;
 
-        PageOptions.Visibility = Visibility.Collapsed;
-        PageProgress.Visibility = Visibility.Visible;
+        SwapPage(PageOptions, PageProgress);
 
+        bool ok = true;
         try
         {
             await RunInstallAsync(createDesktopShortcut, startOnStartup);
@@ -55,6 +115,7 @@ public partial class MainWindow : Window
         }
         catch (Exception ex)
         {
+            ok = false;
             DoneIcon.Data = System.Windows.Media.Geometry.Parse("M6 6l12 12 M18 6 6 18");
             DoneIcon.Stroke = System.Windows.Media.Brushes.IndianRed;
             DoneTitle.Text = "Setup couldn't finish";
@@ -62,8 +123,22 @@ public partial class MainWindow : Window
             LaunchBtn.Visibility = Visibility.Collapsed;
         }
 
-        PageProgress.Visibility = Visibility.Collapsed;
-        PageDone.Visibility = Visibility.Visible;
+        SwapPage(PageProgress, PageDone);
+        PopBadge();
+        Sfx.Play(ok ? Sfx.Cue.Success : Sfx.Cue.Confirm);
+    }
+
+    /// <summary>A springy little pop on the result badge as the final page lands.</summary>
+    private void PopBadge()
+    {
+        var scale = (ScaleTransform)DoneBadge.RenderTransform;
+        var pop = new DoubleAnimation(0.4, 1, TimeSpan.FromSeconds(0.42))
+        {
+            EasingFunction = new BackEase { EasingMode = EasingMode.EaseOut, Amplitude = 0.9 },
+            BeginTime = TimeSpan.FromSeconds(0.08),
+        };
+        scale.BeginAnimation(ScaleTransform.ScaleXProperty, pop);
+        scale.BeginAnimation(ScaleTransform.ScaleYProperty, pop);
     }
 
     private async Task RunInstallAsync(bool createDesktopShortcut, bool startOnStartup)
@@ -131,7 +206,7 @@ public partial class MainWindow : Window
         key.SetValue("Publisher", "Deskify");
         key.SetValue("InstallLocation", _installDir);
         key.SetValue("DisplayIcon", exePath);
-        key.SetValue("UninstallString", $"\"{Path.Combine(_installDir, "Uninstall.exe")}\"");
+        key.SetValue("UninstallString", $"\"{Path.Combine(_installDir, "Uninstall.exe")}\" /uninstall");
         key.SetValue("NoModify", 1, RegistryValueKind.DWord);
         key.SetValue("NoRepair", 1, RegistryValueKind.DWord);
 
@@ -151,7 +226,9 @@ public partial class MainWindow : Window
     private async Task SetStatus(string text, int percent)
     {
         StatusText.Text = text;
-        Progress.Value = percent;
+        // Glide the bar to its new value instead of snapping — reads far smoother.
+        Progress.BeginAnimation(System.Windows.Controls.Primitives.RangeBase.ValueProperty,
+            new DoubleAnimation(percent, TimeSpan.FromSeconds(0.35)) { EasingFunction = EaseOut });
         await Task.Delay(120);
     }
 
@@ -170,6 +247,6 @@ public partial class MainWindow : Window
         {
             // Best effort — user can still launch from the Start Menu shortcut.
         }
-        Close();
+        AnimateOutAndClose();
     }
 }

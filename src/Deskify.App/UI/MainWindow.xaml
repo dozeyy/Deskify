@@ -8,7 +8,7 @@
         FontFamily="{StaticResource UiFont}" FontSize="13"
         TextElement.Foreground="{DynamicResource TextBrush}"
         TextOptions.TextFormattingMode="Ideal" TextOptions.TextRenderingMode="ClearType"
-        SnapsToDevicePixels="True" UseLayoutRounding="True">
+        SnapsToDevicePixels="True" UseLayoutRounding="True" Opacity="0">
 
     <Window.Resources>
         <!-- Read-only app row (right context panel) -->
@@ -552,6 +552,8 @@
                                           Content="New projects lock window positions by default" />
                                 <CheckBox x:Name="ConfirmCloseOthersCheck" Margin="0,12,0,0"
                                           Content="Ask before closing other apps" />
+                                <CheckBox x:Name="SoundCheck" Margin="0,12,0,0"
+                                          Content="Play interface sounds" />
                             </StackPanel>
                         </Border>
 

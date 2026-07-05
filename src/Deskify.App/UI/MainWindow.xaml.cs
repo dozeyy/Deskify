@@ -241,6 +241,7 @@ public partial class MainWindow : Window
         SetActiveNav(NavProjects);
         RefreshProjects();
         ProjectsView.Visibility = Visibility.Visible;
+        Motion.FadeSlideIn(ProjectsView);
     }
 
     private void RefreshProjects()
@@ -277,6 +278,7 @@ public partial class MainWindow : Window
         SnapSizeBox.Text = _settings.SnapGridSize.ToString();
         StrictDefaultCheck.IsChecked = _settings.StrictLayoutDefault;
         ConfirmCloseOthersCheck.IsChecked = _settings.ConfirmCloseOthers;
+        SoundCheck.IsChecked = _settings.InterfaceSounds;
         SettingsStatus.Text = "";
         PopulateThemeList();
 
@@ -284,6 +286,7 @@ public partial class MainWindow : Window
         ShowRightPanel(false);
         SetActiveNav(NavSettings);
         SettingsView.Visibility = Visibility.Visible;
+        Motion.FadeSlideIn(SettingsView);
     }
 
     /// <summary>Swatch fill + check-mark color for each theme's circle preview.</summary>
@@ -392,6 +395,7 @@ public partial class MainWindow : Window
         SetActiveNav(NavProjects);
         DetailView.Visibility = Visibility.Visible;
         ShowRightPanel(true);
+        Motion.FadeSlideIn(DetailView);
     }
 
     private void DetailNotes_LostFocus(object sender, RoutedEventArgs e)
@@ -457,6 +461,10 @@ public partial class MainWindow : Window
             if (!ProjectStore.Save(project))
                 ErrorList.ItemsSource = errors.Append("Couldn't save the project file (last-used time wasn't updated) — everything else above still launched normally.").ToList();
             DetailMeta.Text = $"{project.SummaryText}  ·  {project.LastUsedText}";
+
+            // A satisfying resolve once the workspace is actually up — fires after
+            // the async launch, well clear of the click that started it.
+            Sfx.Play(errors.Count == 0 ? Sfx.Cue.Success : Sfx.Cue.Confirm);
         }
         catch (Exception ex)
         {
@@ -612,6 +620,7 @@ public partial class MainWindow : Window
             return;
         }
 
+        Sfx.Play(Sfx.Cue.Confirm);
         StatusText.Text = missing.Count > 0
             ? $"Layout saved for {captured}/{project.Apps.Count} apps — the rest of the project was saved normally."
             : $"Layout saved for all {project.Apps.Count} app{(project.Apps.Count == 1 ? "" : "s")}.";
@@ -727,6 +736,7 @@ public partial class MainWindow : Window
         ShowRightPanel(false);
         SetActiveNav(NavProjects);
         EditView.Visibility = Visibility.Visible;
+        Motion.FadeSlideIn(EditView);
         GoToStep(0);
     }
 
@@ -735,6 +745,7 @@ public partial class MainWindow : Window
         _wizardStep = Math.Clamp(index, 0, _steps.Length - 1);
         for (int i = 0; i < _steps.Length; i++)
             _steps[i].Visibility = i == _wizardStep ? Visibility.Visible : Visibility.Collapsed;
+        Motion.FadeSlideIn(_steps[_wizardStep], rise: 8, quick: true);
 
         var on = (Brush)FindResource("AccentBrush");
         var off = (Brush)FindResource("StrokeBrush");
@@ -802,6 +813,7 @@ public partial class MainWindow : Window
         _selected = _editing;
         _editing = null;
         DraftStore.Clear();
+        Sfx.Play(Sfx.Cue.Confirm);
         ShowDetails(_selected);
     }
 
@@ -953,6 +965,8 @@ public partial class MainWindow : Window
         _settings.SnapGridSize = snap;
         _settings.StrictLayoutDefault = StrictDefaultCheck.IsChecked == true;
         _settings.ConfirmCloseOthers = ConfirmCloseOthersCheck.IsChecked == true;
+        _settings.InterfaceSounds = SoundCheck.IsChecked == true;
+        Sfx.Enabled = _settings.InterfaceSounds;
         _settings.Save();
         SettingsStatus.Text = "Saved.";
     }
@@ -994,6 +1008,13 @@ public partial class MainWindow : Window
         if (confirm != _settings.ConfirmCloseOthers)
         {
             _settings.ConfirmCloseOthers = confirm;
+            changed = true;
+        }
+        bool sounds = SoundCheck.IsChecked == true;
+        if (sounds != _settings.InterfaceSounds)
+        {
+            _settings.InterfaceSounds = sounds;
+            Sfx.Enabled = sounds;
             changed = true;
         }
 
