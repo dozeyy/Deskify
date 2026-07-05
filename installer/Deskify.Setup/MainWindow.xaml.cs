@@ -206,7 +206,7 @@ public partial class MainWindow : Window
         key.SetValue("Publisher", "Deskify");
         key.SetValue("InstallLocation", _installDir);
         key.SetValue("DisplayIcon", exePath);
-        key.SetValue("UninstallString", $"\"{Path.Combine(_installDir, "Uninstall.exe")}\"");
+        key.SetValue("UninstallString", $"\"{Path.Combine(_installDir, "Uninstall.exe")}\" /uninstall");
         key.SetValue("NoModify", 1, RegistryValueKind.DWord);
         key.SetValue("NoRepair", 1, RegistryValueKind.DWord);
 
