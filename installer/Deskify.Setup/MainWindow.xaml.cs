@@ -103,7 +103,6 @@ public partial class MainWindow : Window
 
         SwapPage(PageOptions, PageProgress);
 
-        bool ok = true;
         try
         {
             await RunInstallAsync(createDesktopShortcut, startOnStartup);
@@ -115,7 +114,6 @@ public partial class MainWindow : Window
         }
         catch (Exception ex)
         {
-            ok = false;
             DoneIcon.Data = System.Windows.Media.Geometry.Parse("M6 6l12 12 M18 6 6 18");
             DoneIcon.Stroke = System.Windows.Media.Brushes.IndianRed;
             DoneTitle.Text = "Setup couldn't finish";
@@ -125,7 +123,6 @@ public partial class MainWindow : Window
 
         SwapPage(PageProgress, PageDone);
         PopBadge();
-        Sfx.Play(ok ? Sfx.Cue.Success : Sfx.Cue.Confirm);
     }
 
     /// <summary>A springy little pop on the result badge as the final page lands.</summary>

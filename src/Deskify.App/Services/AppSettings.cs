@@ -21,9 +21,6 @@ public sealed class AppSettings
     /// False once the user checks "Don't ask again" on that dialog.</summary>
     [JsonPropertyName("confirmCloseOthers")] public bool ConfirmCloseOthers { get; set; } = true;
 
-    /// <summary>Whether the crisp interface click/confirm sounds play. On by default.</summary>
-    [JsonPropertyName("interfaceSounds")] public bool InterfaceSounds { get; set; } = true;
-
     public static string DataDir =>
         Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "Deskify");
 
