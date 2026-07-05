@@ -131,7 +131,7 @@ struct RightPanelView: View {
                         .background(theme.card)
                         .overlay(RoundedRectangle(cornerRadius: 8).stroke(theme.stroke, lineWidth: 1))
                         .clipShape(RoundedRectangle(cornerRadius: 8))
-                        .onChange(of: notesText) { newValue in
+                        .onValueChange(of: notesText) { newValue in
                             app.updateNotes(project, text: newValue)
                         }
 

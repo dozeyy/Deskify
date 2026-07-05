@@ -15,10 +15,11 @@ Requires the .NET 8 SDK. No admin privileges needed to build or run.
 ## Build (macOS)
 
 ```
-cd macos && ./scripts/build-app.sh
+cd macos && ./scripts/package-app.sh
 ```
 
 Output: `macos/build/Deskify.app` (universal: Apple Silicon + Intel).
+Or open it in Xcode via `xcodegen generate && open Deskify.xcodeproj`.
 Same product, same workflow, same project JSON format — see `macos/README.md`.
 
 ## Data

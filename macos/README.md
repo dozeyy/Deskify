@@ -6,15 +6,60 @@ NSWorkspace) rather than a port of the Windows code.
 
 ## Build
 
+There are two supported paths — both build the same universal (Apple Silicon +
+Intel) app from the same sources. Requires macOS 13+ and Xcode (or the Command
+Line Tools).
+
+### Command line / CI (SwiftPM)
+
 ```
 cd macos
-./scripts/build-app.sh
+./scripts/package-app.sh      # → build/Deskify.app  (universal, signed ad-hoc)
 ```
 
-Output: `macos/build/Deskify.app` — a universal binary (Apple Silicon + Intel).
-Requires macOS 13+ and Xcode (or the Command Line Tools). For a quick
-non-bundled dev run: `swift run` (some bundle-dependent behavior, like the
-Dock icon, only works from the .app).
+Individual steps are available too: `build-release.sh` (compile only),
+`make-icons.sh` (regenerate icons), `make-dmg.sh` (drag-to-install `.dmg`),
+`sign-notarize.sh` (Developer ID notarization). All read `scripts/config.sh`,
+where the signing/versioning placeholders live. For a quick non-bundled dev
+run: `swift run`.
+
+### Xcode
+
+The project is defined as a text spec (`project.yml`) generated with
+[XcodeGen](https://github.com/yonyz/XcodeGen):
+
+```
+brew install xcodegen
+cd macos
+./scripts/make-icons.sh        # populate the app-icon PNGs (once)
+xcodegen generate
+open Deskify.xcodeproj
+```
+
+You get real **Debug** and **Release** configurations, a `DeskifyCore` static
+library (the shared, platform-agnostic module) linked into the `Deskify` app
+target, and Run/Archive that produce a proper `Deskify.app`. `project.yml` is
+the source of truth — regenerate the `.xcodeproj` any time instead of editing
+it by hand.
+
+> Deskify is intentionally **not** sandboxed: controlling other apps' windows
+> and launching arbitrary apps is incompatible with the App Sandbox (the same
+> reason macOS window managers ship outside the Mac App Store). It is
+> Hardened-Runtime-ready for Developer ID notarization — see
+> `Resources/Deskify.entitlements` and `scripts/sign-notarize.sh`.
+
+### Distribution pipeline
+
+```
+./scripts/build-release.sh     # 1. compile universal Release binary
+./scripts/package-app.sh       # 2. assemble + sign Deskify.app
+./scripts/make-dmg.sh          # 3. produce Deskify-<version>.dmg
+./scripts/sign-notarize.sh     # 4. notarize + staple (needs Developer ID)
+```
+
+Steps 1–3 work with zero Apple credentials (ad-hoc signing, local use). To ship
+publicly, set `SIGN_IDENTITY`, `TEAM_ID`, and notary credentials in
+`scripts/config.sh`; step 4 then notarizes and staples with no other changes.
 
 ## First run — Accessibility permission
 

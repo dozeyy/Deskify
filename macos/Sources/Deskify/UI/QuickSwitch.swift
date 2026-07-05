@@ -6,8 +6,10 @@ import DeskifyCore
 /// filter, ↑/↓ to move, Return or click to launch, Esc or clicking away to
 /// close. Nothing launches until the user explicitly confirms, so an
 /// accidental hotkey press never launches a whole workspace by itself.
+/// NSObject-derived so the notification target/action (`#selector`) below is
+/// valid; @MainActor because it drives AppKit window state.
 @MainActor
-final class QuickSwitchController {
+final class QuickSwitchController: NSObject {
     private weak var appState: AppState?
     private var panel: NSPanel?
     private var keyMonitor: Any?
@@ -15,6 +17,7 @@ final class QuickSwitchController {
 
     init(appState: AppState) {
         self.appState = appState
+        super.init()
     }
 
     /// ⌃Space is a toggle: pressing it again while the popup is open closes it.
@@ -183,7 +186,7 @@ struct QuickSwitchView: View {
                     }
                     .padding(8)
                 }
-                .onChange(of: model.selectedIndex) { index in
+                .onValueChange(of: model.selectedIndex) { index in
                     withAnimation(.easeOut(duration: 0.1)) { proxy.scrollTo(index) }
                 }
             }

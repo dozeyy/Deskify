@@ -145,11 +145,13 @@ final class MacWindowService: WindowService {
     func closeWindow(_ window: WindowInfo) {
         guard let element = element(of: window) else { return }
         var button: CFTypeRef?
-        if AXUIElementCopyAttributeValue(element, kAXCloseButtonAttribute as CFString, &button) == .success,
-           let button {
-            // CFTypeRef → AXUIElement: AX buttons are always AXUIElements.
-            AXUIElementPerformAction(button as! AXUIElement, kAXPressAction as CFString)
-        }
+        guard AXUIElementCopyAttributeValue(element, kAXCloseButtonAttribute as CFString, &button) == .success,
+              let button,
+              // Type-ID check makes the CF downcast checked rather than a
+              // force-cast that would trap if AX ever returned a non-element.
+              CFGetTypeID(button) == AXUIElementGetTypeID() else { return }
+        let axButton = button as! AXUIElement // safe: type ID confirmed above
+        AXUIElementPerformAction(axButton, kAXPressAction as CFString)
     }
 
     // MARK: - Finder folder windows
@@ -182,17 +184,23 @@ final class MacWindowService: WindowService {
     }
 
     private func frame(of element: AXUIElement) -> CGRect? {
-        var posRef: CFTypeRef?
-        var sizeRef: CFTypeRef?
-        guard AXUIElementCopyAttributeValue(element, kAXPositionAttribute as CFString, &posRef) == .success,
-              AXUIElementCopyAttributeValue(element, kAXSizeAttribute as CFString, &sizeRef) == .success,
-              let posRef, let sizeRef else { return nil }
+        guard let posValue = axValue(element, kAXPositionAttribute),
+              let sizeValue = axValue(element, kAXSizeAttribute) else { return nil }
 
         var origin = CGPoint.zero
         var size = CGSize.zero
-        guard AXValueGetValue(posRef as! AXValue, .cgPoint, &origin),
-              AXValueGetValue(sizeRef as! AXValue, .cgSize, &size) else { return nil }
+        guard AXValueGetValue(posValue, .cgPoint, &origin),
+              AXValueGetValue(sizeValue, .cgSize, &size) else { return nil }
         return CGRect(origin: origin, size: size)
+    }
+
+    /// Reads an attribute known to hold an AXValue, downcasting only after a
+    /// type-ID check so a misbehaving app can't turn a bad value into a trap.
+    private func axValue(_ element: AXUIElement, _ attribute: String) -> AXValue? {
+        var ref: CFTypeRef?
+        guard AXUIElementCopyAttributeValue(element, attribute as CFString, &ref) == .success,
+              let ref, CFGetTypeID(ref) == AXValueGetTypeID() else { return nil }
+        return (ref as! AXValue) // safe: type ID confirmed above
     }
 
     @discardableResult

@@ -160,7 +160,7 @@ struct SettingsView: View {
     }
 
     @ViewBuilder
-    private func section(_ title: String, @ViewBuilder content: () -> some View) -> some View {
+    private func section<C: View>(_ title: String, @ViewBuilder content: () -> C) -> some View {
         Eyebrow(text: title)
             .padding(.top, 20)
             .padding(.bottom, 8)

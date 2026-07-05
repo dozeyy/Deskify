@@ -76,7 +76,11 @@ struct IconButtonStyle: ButtonStyle {
 /// Panel card (Windows' Card style).
 struct CardView<Content: View>: View {
     @Environment(\.theme) private var theme
-    @ViewBuilder var content: Content
+    private let content: Content
+
+    init(@ViewBuilder content: () -> Content) {
+        self.content = content()
+    }
 
     var body: some View {
         content
@@ -266,5 +270,19 @@ extension View {
     /// Row hover highlight used across all list rows.
     func rowHover(_ hovering: Binding<Bool>) -> some View {
         onHover { hovering.wrappedValue = $0 }
+    }
+
+    /// Deployment-target-safe `onChange`. The two/zero-parameter
+    /// `onChange(of:initial:_:)` is macOS 14+ only, and the one-parameter
+    /// `onChange(of:perform:)` is deprecated there — this picks the right one
+    /// at compile time so the code is warning-free on new SDKs yet still runs
+    /// on macOS 13 (Ventura).
+    @ViewBuilder
+    func onValueChange<V: Equatable>(of value: V, perform action: @escaping (V) -> Void) -> some View {
+        if #available(macOS 14.0, *) {
+            self.onChange(of: value) { _, newValue in action(newValue) }
+        } else {
+            self.onChange(of: value, perform: action)
+        }
     }
 }

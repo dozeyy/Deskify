@@ -392,10 +392,19 @@ struct CloseOthersView: View {
 /// Common sheet frame: title, optional subtitle, content, footer button row.
 struct SheetChrome<Content: View, Footer: View>: View {
     @Environment(\.theme) private var theme
-    let title: String
-    var subtitle: String?
-    @ViewBuilder var content: Content
-    @ViewBuilder var footer: Footer
+    private let title: String
+    private let subtitle: String?
+    private let content: Content
+    private let footer: Footer
+
+    init(title: String, subtitle: String? = nil,
+         @ViewBuilder content: () -> Content,
+         @ViewBuilder footer: () -> Footer) {
+        self.title = title
+        self.subtitle = subtitle
+        self.content = content()
+        self.footer = footer()
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -424,7 +433,12 @@ struct SheetChrome<Content: View, Footer: View>: View {
 struct SelectableRow<Content: View>: View {
     @Environment(\.theme) private var theme
     @Binding var selected: Bool
-    @ViewBuilder var content: Content
+    private let content: Content
+
+    init(selected: Binding<Bool>, @ViewBuilder content: () -> Content) {
+        self._selected = selected
+        self.content = content()
+    }
 
     var body: some View {
         HStack(spacing: 10) {
