@@ -146,6 +146,8 @@ public partial class MainWindow : Window
         await SetStatus("Preparing install folder…", 5);
         Directory.CreateDirectory(_installDir);
 
+        await CloseRunningApp();
+
         await SetStatus("Extracting Deskify…", 15);
         await Task.Run(() => ExtractPayload(_installDir));
 
@@ -173,6 +175,39 @@ public partial class MainWindow : Window
 
         await SetStatus("Finishing up…", 100);
         await Task.Delay(250);
+    }
+
+    /// <summary>If Deskify is already running from this install dir (e.g. reinstalling
+    /// or upgrading while the app is open), close it first — otherwise extraction fails
+    /// with a locked-file error instead of something the user can act on.</summary>
+    private async Task CloseRunningApp()
+    {
+        string exePath = Path.Combine(_installDir, "Deskify.exe");
+        var running = new List<System.Diagnostics.Process>();
+        foreach (var proc in System.Diagnostics.Process.GetProcessesByName("Deskify"))
+        {
+            try
+            {
+                if (string.Equals(proc.MainModule?.FileName, exePath, StringComparison.OrdinalIgnoreCase))
+                    running.Add(proc);
+            }
+            catch { /* inaccessible process, assume it's not ours */ }
+        }
+        if (running.Count == 0) return;
+
+        await SetStatus("Closing the running copy of Deskify…", 10);
+        foreach (var proc in running)
+        {
+            try { proc.CloseMainWindow(); } catch { /* best effort */ }
+        }
+        foreach (var proc in running)
+        {
+            try
+            {
+                if (!proc.WaitForExit(3000)) proc.Kill(entireProcessTree: true);
+            }
+            catch { /* best effort */ }
+        }
     }
 
     private void ExtractPayload(string destDir)
