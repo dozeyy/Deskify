@@ -66,14 +66,25 @@ public static class LayoutService
         if (NativeMethods.IsZoomed(hwnd) || NativeMethods.IsIconic(hwnd))
             NativeMethods.ShowWindow(hwnd, NativeMethods.SW_RESTORE);
 
-        bool ok = NativeMethods.SetWindowPos(hwnd, IntPtr.Zero, x, y, w, h,
-            NativeMethods.SWP_NOZORDER | NativeMethods.SWP_NOACTIVATE);
+        const uint flags = NativeMethods.SWP_NOZORDER | NativeMethods.SWP_NOACTIVATE;
+        bool ok = NativeMethods.SetWindowPos(hwnd, IntPtr.Zero, x, y, w, h, flags);
 
         if (layout.IsMaximized)
         {
             // Window is now on the target monitor, so maximize fills that monitor.
             NativeMethods.ShowWindow(hwnd, NativeMethods.SW_SHOWMAXIMIZED);
+            return ok;
         }
+
+        // Re-assert once if the window didn't actually land where we asked. Some apps
+        // clamp or ignore the very first SetWindowPos right after their window appears
+        // (a min-size not yet applied, a pending restore, their own startup layout
+        // pass), so a single call can silently leave the window off its saved spot.
+        // A second call after that settles — cheap insurance that the position the
+        // user saved is the one that sticks.
+        if (ok && !Matches(hwnd, layout, monitors, tolerance: 2))
+            ok = NativeMethods.SetWindowPos(hwnd, IntPtr.Zero, x, y, w, h, flags);
+
         return ok;
     }
 
