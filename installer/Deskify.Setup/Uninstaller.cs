@@ -39,17 +39,26 @@ internal static class Uninstaller
         catch { /* best effort */ }
 
         // Can't delete the running exe's own directory synchronously (file is locked).
-        // Schedule a delayed delete via a detached cmd process instead.
+        // Schedule a delayed delete via a detached PowerShell process that polls for
+        // this process to actually exit (a fixed delay would race the "uninstalled"
+        // message box, which stays open however long the user takes to dismiss it).
         try
         {
             var psi = new System.Diagnostics.ProcessStartInfo
             {
-                FileName = "cmd.exe",
-                Arguments = $"/C timeout /t 2 /nobreak >nul & rmdir /S /Q \"{installDir}\"",
+                FileName = "powershell.exe",
                 WindowStyle = System.Diagnostics.ProcessWindowStyle.Hidden,
                 CreateNoWindow = true,
                 UseShellExecute = false
             };
+            psi.ArgumentList.Add("-NoProfile");
+            psi.ArgumentList.Add("-WindowStyle");
+            psi.ArgumentList.Add("Hidden");
+            psi.ArgumentList.Add("-Command");
+            psi.ArgumentList.Add(
+                $"while (Get-Process -Id {Environment.ProcessId} -ErrorAction SilentlyContinue) " +
+                $"{{ Start-Sleep -Milliseconds 500 }}; " +
+                $"Remove-Item -LiteralPath '{installDir}' -Recurse -Force -ErrorAction SilentlyContinue");
             System.Diagnostics.Process.Start(psi);
         }
         catch { /* best effort */ }
