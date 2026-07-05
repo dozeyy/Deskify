@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <!--
+      Deskify is intentionally NOT App-Sandboxed. Its core job — reading,
+      moving, and closing OTHER applications' windows via the Accessibility
+      API, and launching arbitrary apps the user chose — is fundamentally
+      incompatible with the sandbox, which confines an app to its own
+      container. This is the same reason window-manager utilities on macOS
+      ship un-sandboxed (and therefore outside the Mac App Store).
+
+      Accessibility control itself needs NO entitlement — it is granted by the
+      user at runtime through TCC (System Settings → Privacy & Security →
+      Accessibility). The entries below only matter under the Hardened Runtime
+      (which notarization requires):
+    -->
+
+    <!-- Allows sending Apple Events, which NSWorkspace app activation can use. -->
+    <key>com.apple.security.automation.apple-events</key>
+    <true/>
+</dict>
+</plist>

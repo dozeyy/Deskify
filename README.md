@@ -1,9 +1,9 @@
 # Deskify
 
-Workspace automation for Windows 10/11. Create projects that restore your entire desktop
-environment — apps, websites, folders, and exact window layout — in one click.
+Workspace automation for Windows 10/11 and macOS. Create projects that restore your entire
+desktop environment — apps, websites, folders, and exact window layout — in one click.
 
-## Build
+## Build (Windows)
 
 ```
 dotnet build Deskify.sln -c Release
@@ -11,6 +11,16 @@ dotnet build Deskify.sln -c Release
 
 Output: `src\Deskify.App\bin\Release\net8.0-windows\Deskify.exe`
 Requires the .NET 8 SDK. No admin privileges needed to build or run.
+
+## Build (macOS)
+
+```
+cd macos && ./scripts/package-app.sh
+```
+
+Output: `macos/build/Deskify.app` (universal: Apple Silicon + Intel).
+Or open it in Xcode via `xcodegen generate && open Deskify.xcodeproj`.
+Same product, same workflow, same project JSON format — see `macos/README.md`.
 
 ## Data
 

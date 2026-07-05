@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>CFBundleName</key>
+    <string>Deskify</string>
+    <key>CFBundleDisplayName</key>
+    <string>Deskify</string>
+    <key>CFBundleIdentifier</key>
+    <string>me.willhenry.deskify</string>
+    <key>CFBundleVersion</key>
+    <string>1</string>
+    <key>CFBundleShortVersionString</key>
+    <string>0.1.0</string>
+    <key>CFBundleExecutable</key>
+    <string>Deskify</string>
+    <key>CFBundlePackageType</key>
+    <string>APPL</string>
+    <!-- Used by the command-line/SPM .app assembly (scripts/package-app.sh),
+         which drops a generated Deskify.icns here. The Xcode build instead
+         supplies the icon from Assets.xcassets (CFBundleIconName=AppIcon),
+         which Xcode injects automatically. -->
+    <key>CFBundleIconFile</key>
+    <string>Deskify.icns</string>
+    <key>LSMinimumSystemVersion</key>
+    <string>13.0</string>
+    <key>LSApplicationCategoryType</key>
+    <string>public.app-category.productivity</string>
+    <key>NSHighResolutionCapable</key>
+    <true/>
+    <key>NSPrincipalClass</key>
+    <string>NSApplication</string>
+    <!-- Autosave (wizard drafts, notes) runs in applicationWillTerminate, so
+         opt out of sudden/automatic termination to guarantee it fires. -->
+    <key>NSSupportsAutomaticTermination</key>
+    <false/>
+    <key>NSSupportsSuddenTermination</key>
+    <false/>
+    <!-- Shown if macOS ever prompts for permission to control another app via
+         Apple Events (pairs with the apple-events entitlement under the
+         Hardened Runtime). -->
+    <key>NSAppleEventsUsageDescription</key>
+    <string>Deskify controls the windows of the apps in your workspace so it can restore their saved layout.</string>
+    <key>NSHumanReadableCopyright</key>
+    <string>Deskify — workspace automation.</string>
+</dict>
+</plist>

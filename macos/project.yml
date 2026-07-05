@@ -1,0 +1,77 @@
+# XcodeGen spec — generates Deskify.xcodeproj from this text file.
+#
+#   brew install xcodegen        # once
+#   cd macos && xcodegen generate
+#   open Deskify.xcodeproj
+#
+# Keeping the project as a text spec (rather than a checked-in .xcodeproj) means
+# it stays diff-able and merge-friendly, and regenerates deterministically. The
+# same sources also build straight from Package.swift (`swift build`) — see
+# scripts/ for the command-line/CI path.
+
+name: Deskify
+
+options:
+  bundleIdPrefix: me.willhenry          # PLACEHOLDER — change to your reverse-DNS prefix
+  deploymentTarget:
+    macOS: "13.0"                        # Ventura+ covers Apple Silicon and every Intel Mac still updated
+  developmentLanguage: en
+  createIntermediateGroups: true
+
+settings:
+  base:
+    # Universal binary on Release/archive; the active arch alone for fast Debug.
+    ARCHS: "$(ARCHS_STANDARD)"           # arm64 + x86_64
+    ONLY_ACTIVE_ARCH: false
+    SWIFT_VERSION: "5.9"
+    MARKETING_VERSION: "0.1.0"
+    CURRENT_PROJECT_VERSION: "1"
+    # Signing — ad-hoc by default so a fresh checkout builds with no Apple
+    # account. Fill DEVELOPMENT_TEAM (and switch the identity in the scripts)
+    # to sign with a real Developer ID for distribution.
+    CODE_SIGN_STYLE: Manual
+    CODE_SIGN_IDENTITY: "-"              # "-" = ad-hoc; "Developer ID Application" for release
+    DEVELOPMENT_TEAM: ""                 # PLACEHOLDER — your 10-char Apple Team ID
+  configs:
+    Debug:
+      SWIFT_ACTIVE_COMPILATION_CONDITIONS: DEBUG
+      SWIFT_OPTIMIZATION_LEVEL: "-Onone"
+      ONLY_ACTIVE_ARCH: true            # faster local builds
+      GCC_OPTIMIZATION_LEVEL: "0"
+    Release:
+      SWIFT_OPTIMIZATION_LEVEL: "-O"
+      SWIFT_COMPILATION_MODE: wholemodule
+
+targets:
+  # Platform-agnostic core as a static library so it links straight into the
+  # app binary — one Mach-O to sign and ship, no embedded framework.
+  DeskifyCore:
+    type: library.static
+    platform: macOS
+    sources:
+      - path: Sources/DeskifyCore
+    settings:
+      base:
+        PRODUCT_NAME: DeskifyCore
+        SKIP_INSTALL: true
+
+  Deskify:
+    type: application
+    platform: macOS
+    sources:
+      - path: Sources/Deskify
+      - path: Resources/Assets.xcassets
+    dependencies:
+      - target: DeskifyCore
+    settings:
+      base:
+        PRODUCT_NAME: Deskify
+        PRODUCT_BUNDLE_IDENTIFIER: me.willhenry.deskify   # PLACEHOLDER
+        INFOPLIST_FILE: Resources/Info.plist
+        CODE_SIGN_ENTITLEMENTS: Resources/Deskify.entitlements
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        ENABLE_HARDENED_RUNTIME: true      # required for notarization
+        COMBINE_HIDPI_IMAGES: true
+        LD_RUNPATH_SEARCH_PATHS:
+          - "$(inherited)"
+          - "@executable_path/../Frameworks"
