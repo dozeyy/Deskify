@@ -18,8 +18,8 @@
 
     <Product>Deskify</Product>
     <AssemblyTitle>Deskify</AssemblyTitle>
-    <Version>0.1.2</Version>
-    <FileVersion>0.1.2.0</FileVersion>
+    <Version>0.1.3</Version>
+    <FileVersion>0.1.3.0</FileVersion>
     <Description>Workspace automation: save and restore your entire desktop environment in one click.</Description>
 
     <!-- Keep footprint small and startup fast. -->

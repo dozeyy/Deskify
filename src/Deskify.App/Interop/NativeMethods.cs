@@ -93,6 +93,11 @@ internal static class NativeMethods
     [DllImport("user32.dll")] public static extern bool SetForegroundWindow(IntPtr hWnd);
     [DllImport("user32.dll")] public static extern bool PostMessage(IntPtr hWnd, uint msg, IntPtr wParam, IntPtr lParam);
 
+    // ---- Cross-instance signalling (single-instance guard) ----
+    [DllImport("user32.dll", CharSet = CharSet.Unicode)]
+    public static extern uint RegisterWindowMessage(string msg);
+    public static readonly IntPtr HWND_BROADCAST = new(0xFFFF);
+
     // ---- Global hotkey ----
     [DllImport("user32.dll")] public static extern bool RegisterHotKey(IntPtr hWnd, int id, uint fsModifiers, uint vk);
     [DllImport("user32.dll")] public static extern bool UnregisterHotKey(IntPtr hWnd, int id);
@@ -132,9 +137,16 @@ internal static class NativeMethods
     public const int DWMWA_CLOAKED = 14;
     public const int DWMWA_USE_IMMERSIVE_DARK_MODE = 20;
 
+    public const uint SWP_NOSIZE = 0x0001;
+    public const uint SWP_NOMOVE = 0x0002;
     public const uint SWP_NOZORDER = 0x0004;
     public const uint SWP_NOACTIVATE = 0x0010;
     public const uint SWP_ASYNCWINDOWPOS = 0x4000;
+
+    // Re-inserting a window here (with SWP_NOACTIVATE) bumps it back to the top of the
+    // topmost z-order band without taking focus — used to keep the launch overlay above
+    // app splash/loading windows that appear later and are themselves topmost.
+    public static readonly IntPtr HWND_TOPMOST = new(-1);
 
     public const int SW_SHOWNORMAL = 1;
     public const int SW_SHOWMAXIMIZED = 3;

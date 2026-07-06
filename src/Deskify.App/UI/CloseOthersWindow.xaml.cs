@@ -27,8 +27,11 @@ public partial class CloseOthersWindow : Window
 
         Title = mode == Mode.WorkspaceSwitch ? "Switch Workspace" : "Close Other Apps";
         TitleText.Text = mode == Mode.WorkspaceSwitch ? "Switch workspace?" : "Close other apps?";
+        // A workspace switch clears the desktop, so it's the case where unsaved work is
+        // actually at risk — show the save-first warning there, not for a plain close.
+        SaveWarning.Visibility = mode == Mode.WorkspaceSwitch ? Visibility.Visible : Visibility.Collapsed;
         SubtitleText.Text = mode == Mode.WorkspaceSwitch
-            ? $"These aren't part of \"{project.Name}\" — they'll be closed before it launches. Uncheck anything you want to leave open."
+            ? $"The desktop will be cleared, then \"{project.Name}\" opens fresh at its saved layout. Uncheck anything you want to leave open — if it belongs to this workspace it'll still be repositioned."
             : $"These aren't part of \"{project.Name}\". Uncheck anything you want to leave open.";
 
         _items = others

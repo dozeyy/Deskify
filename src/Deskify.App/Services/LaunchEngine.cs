@@ -16,7 +16,7 @@ public sealed class LaunchResult
 /// <summary>Launches a project's apps/urls/folders and restores the saved window layout.</summary>
 public static class LaunchEngine
 {
-    public static async Task<LaunchResult> LaunchAsync(DeskifyProject project, AppSettings settings, IProgress<string> status)
+    public static async Task<LaunchResult> LaunchAsync(DeskifyProject project, AppSettings settings, IProgress<string> status, CancellationToken ct = default)
     {
         var result = new LaunchResult();
 
@@ -31,6 +31,7 @@ public static class LaunchEngine
 
         foreach (var group in project.EffectiveLaunchOrder)
         {
+            ct.ThrowIfCancellationRequested();
             switch (group.ToLowerInvariant())
             {
                 case "apps":
@@ -47,7 +48,7 @@ public static class LaunchEngine
                         // default browser for a website) open via the folders/urls
                         // groups below — launching them here too would duplicate them.
                         LaunchApp(app, launchedPids, result);
-                        await Task.Delay(150);
+                        await Task.Delay(150, ct);
                     }
                     break;
 
@@ -61,13 +62,13 @@ public static class LaunchEngine
                     foreach (var folder in project.Folders)
                     {
                         OpenFolder(folder, launchedPids, result);
-                        await Task.Delay(250);
+                        await Task.Delay(250, ct);
                     }
                     break;
             }
         }
 
-        await PositionWindowsAsync(project, settings, status, preExisting, launchedPids, result);
+        await PositionWindowsAsync(project, settings, status, preExisting, launchedPids, result, ct);
 
         status.Report(result.Success
             ? (result.LayoutTargets > 0 ? $"Workspace restored — {result.Positioned}/{result.LayoutTargets} windows positioned." : "Workspace launched.")
@@ -243,38 +244,73 @@ public static class LaunchEngine
 
     private static async Task PositionWindowsAsync(
         DeskifyProject project, AppSettings settings, IProgress<string> status,
-        HashSet<IntPtr> preExisting, HashSet<uint> launchedPids, LaunchResult result)
+        HashSet<IntPtr> preExisting, HashSet<uint> launchedPids, LaunchResult result, CancellationToken ct)
     {
         var targets = project.Apps.Where(a => a.Window != null && a.Path.Length > 0).ToList();
         result.LayoutTargets = targets.Count;
         if (targets.Count == 0) return;
 
-        status.Report("Waiting for windows…");
         var monitors = Monitors.All();
-        var claimed = new HashSet<IntPtr>();
-        var applied = new List<(IntPtr Hwnd, WindowLayout Layout)>();
-        var remaining = new List<AppEntry>(targets);
-        var stopwatch = Stopwatch.StartNew();
         var timeout = TimeSpan.FromSeconds(settings.DetectTimeoutSeconds);
 
-        // Retry loop: poll for windows until every target is matched or we time out.
-        while (remaining.Count > 0 && stopwatch.Elapsed < timeout)
+        // ---- Phase 1: let every app open and finish loading on its own FIRST ----
+        // Deliberately don't move anything yet. Positioning windows mid-startup fights
+        // each app's own layout pass and makes windows visibly jump around; instead we
+        // wait until every target has a window on screen (or we hit the timeout), and
+        // only then snap them all into place at once. The translucent launch overlay
+        // hides this load-and-shuffle from the user until it's done.
+        status.Report("Waiting for apps to finish loading…");
+        var seen = new HashSet<AppEntry>();
+        var stopwatch = Stopwatch.StartNew();
+        while (seen.Count < targets.Count && stopwatch.Elapsed < timeout)
         {
+            ct.ThrowIfCancellationRequested();
             var windows = await Task.Run(() => WindowScanner.Scan());
             var processTree = await Task.Run(ProcessTree.Snapshot);
 
-            for (int i = remaining.Count - 1; i >= 0; i--)
+            // Re-match every target each pass against one shared claimed set so two
+            // targets never latch onto the same window.
+            var claimed = new HashSet<IntPtr>();
+            foreach (var app in targets)
             {
-                var app = remaining[i];
                 var match = FindBestWindow(windows, app, launchedPids, preExisting, claimed, processTree);
                 if (match == null) continue;
+                claimed.Add(match.Hwnd);
+                if (seen.Add(app))
+                    status.Report($"Waiting for apps to finish loading… ({seen.Count}/{targets.Count})");
+            }
 
+            if (seen.Count < targets.Count)
+                await Task.Delay(settings.RetryIntervalMs, ct);
+        }
+
+        foreach (var app in targets.Where(a => !seen.Contains(a)))
+            result.Errors.Add($"{app.Name}: window not found within {settings.DetectTimeoutSeconds}s — layout not applied");
+
+        if (seen.Count == 0) return;
+
+        // ---- Phase 2: brief pause so apps finish their OWN startup positioning ----
+        // before we assert ours — otherwise we'd snap them, then they'd move once more.
+        status.Report("Letting things settle…");
+        await Task.Delay(project.StrictLayout ? 2500 : 1500, ct);
+
+        // ---- Phase 3: snap every loaded window to its saved position, in one pass ----
+        status.Report("Arranging your windows…");
+        var applied = new List<AppEntry>();
+        {
+            var windows = await Task.Run(() => WindowScanner.Scan());
+            var processTree = await Task.Run(ProcessTree.Snapshot);
+            var claimed = new HashSet<IntPtr>();
+            foreach (var app in targets.Where(seen.Contains))
+            {
+                var match = FindBestWindow(windows, app, launchedPids, preExisting, claimed, processTree);
+                if (match == null) continue;
                 claimed.Add(match.Hwnd);
                 if (LayoutService.Apply(match.Hwnd, app.Window!, monitors))
                 {
                     result.Positioned++;
-                    applied.Add((match.Hwnd, app.Window!));
-                    status.Report($"Positioned {app.Name} ({result.Positioned}/{targets.Count})");
+                    applied.Add(app);
+                    status.Report($"Arranging your windows… ({result.Positioned}/{targets.Count})");
                 }
                 else
                 {
@@ -283,34 +319,52 @@ public static class LaunchEngine
                     // non-elevated app is not allowed to reposition).
                     result.Errors.Add($"{app.Name}: found its window but couldn't move it (apps running as administrator can't be repositioned)");
                 }
-                remaining.RemoveAt(i);
             }
-
-            if (remaining.Count > 0)
-                await Task.Delay(settings.RetryIntervalMs);
         }
 
-        foreach (var app in remaining)
-            result.Errors.Add($"{app.Name}: window not found within {settings.DetectTimeoutSeconds}s — layout not applied");
-
-        // Strict mode: some apps restore their own size shortly after startup.
-        // Verify after a settle delay and re-apply anything that drifted.
-        if (project.StrictLayout && applied.Count > 0)
+        // ---- Phase 4: hold them there ----
+        // Many apps undo the placement a moment after we set it:
+        //   • FL Studio and browsers restore their own remembered window bounds.
+        //   • Electron apps like Discord swap a splash/updater window for the real main
+        //     window at their own saved position, so the window we positioned is gone.
+        // Each pass RE-MATCHES every positioned app against a fresh scan and re-applies
+        // until the layout sticks. Strict mode keeps at it longer.
+        if (applied.Count > 0)
         {
             status.Report("Double-checking window positions…");
-            for (int attempt = 0; attempt < 3; attempt++)
+            // Require the layout to hold across CONSECUTIVE passes before trusting it,
+            // not just match once. A single-instance Electron app like Discord opens
+            // at its own remembered bounds, briefly matches after we re-apply, then
+            // re-asserts that remembered position a beat later — so stopping on the
+            // first good pass (an early `break`) let Discord drift back to wherever it
+            // was last used ("the newest saved location"), undoing the per-project
+            // position we just applied. Needing two clean passes in a row means a late
+            // self-restore resets the streak and gets corrected instead of missed.
+            const int requiredStable = 2;
+            int settleAttempts = project.StrictLayout ? 10 : 6;
+            int stableStreak = 0;
+            for (int attempt = 0; attempt < settleAttempts; attempt++)
             {
-                await Task.Delay(1000);
+                await Task.Delay(700, ct);
+                var windows = await Task.Run(() => WindowScanner.Scan());
+                var processTree = await Task.Run(ProcessTree.Snapshot);
+                var settleClaimed = new HashSet<IntPtr>();
                 bool allGood = true;
-                foreach (var (hwnd, layout) in applied)
+
+                foreach (var app in applied)
                 {
-                    if (!LayoutService.Matches(hwnd, layout, monitors))
+                    var match = FindBestWindow(windows, app, launchedPids, preExisting, settleClaimed, processTree);
+                    if (match == null) { allGood = false; continue; } // window briefly gone (mid-swap) — keep watching
+                    settleClaimed.Add(match.Hwnd);
+                    if (!LayoutService.Matches(match.Hwnd, app.Window!, monitors))
                     {
                         allGood = false;
-                        LayoutService.Apply(hwnd, layout, monitors);
+                        LayoutService.Apply(match.Hwnd, app.Window!, monitors);
                     }
                 }
-                if (allGood) break;
+
+                stableStreak = allGood ? stableStreak + 1 : 0;
+                if (stableStreak >= requiredStable) break;
             }
         }
     }
@@ -582,21 +636,41 @@ public static class LaunchEngine
             }
         }
 
-        // Browser entry: one shared entry covers every website (they're tabs in
-        // the same window). Drop it if there are no websites left; add it if
-        // there are websites but no browser entry yet.
-        var browser = project.Urls.Count > 0 ? DefaultBrowser.Detect() : null;
-        project.Apps.RemoveAll(a => a.AutoLinked && !ExplorerEntry(a) &&
-            (browser == null || !string.Equals(a.Path, browser.Value.Path, StringComparison.OrdinalIgnoreCase)));
-
-        if (browser != null && !project.Apps.Any(a => a.AutoLinked && string.Equals(a.Path, browser.Value.Path, StringComparison.OrdinalIgnoreCase)))
+        // Browser entry: one shared auto-linked entry (the non-Explorer one) covers
+        // every website — they open as tabs in the same window. This runs on every
+        // load/launch, so the default browser is RE-DETECTED each time and the entry
+        // is updated IN PLACE to point at whatever the user's default is right now.
+        // Updating in place (rather than delete-and-re-add) means the saved window
+        // POSITION carries over when the user switches default browser — e.g. Chrome →
+        // Zen keeps opening the browser at the same saved spot instead of losing its
+        // layout. Detection is resilient to stale/forked-browser registrations
+        // (see DefaultBrowser.Detect).
+        var browserEntries = project.Apps.Where(a => a.AutoLinked && !ExplorerEntry(a)).ToList();
+        if (project.Urls.Count == 0)
         {
-            project.Apps.Add(new AppEntry
-            {
-                Name = browser.Value.Name,
-                Path = browser.Value.Path,
-                AutoLinked = true,
-            });
+            // No websites — this project needs no browser entry.
+            foreach (var stale in browserEntries) project.Apps.Remove(stale);
         }
+        else if (DefaultBrowser.Detect() is { } browser)
+        {
+            var keep = browserEntries.FirstOrDefault();
+            if (keep == null)
+            {
+                project.Apps.Add(new AppEntry { Name = browser.Name, Path = browser.Path, AutoLinked = true });
+            }
+            else
+            {
+                // Point the entry at the current default browser, preserving its saved
+                // layout; if this entry has none, inherit one from a stale sibling so a
+                // previously-captured position isn't dropped.
+                keep.Window ??= browserEntries.FirstOrDefault(b => b.Window != null)?.Window;
+                keep.Path = browser.Path;
+                keep.Name = browser.Name;
+                foreach (var extra in browserEntries.Where(b => b != keep)) project.Apps.Remove(extra);
+            }
+        }
+        // else: websites exist but the default browser couldn't be detected right now —
+        // leave any existing entry untouched rather than discard a good saved position
+        // over a transient detection miss.
     }
 }

@@ -10,17 +10,50 @@ public static class WindowCloser
     /// <summary>Currently open windows, excluding the given project's own apps.
     /// Uses the same exe-name resolution as launch/layout matching (handles
     /// launcher-style apps and shortcuts) so "other" windows are identified
-    /// the same way everywhere in the app.</summary>
-    public static List<WindowInfo> OtherWindows(DeskifyProject project)
+    /// the same way everywhere in the app.
+    ///
+    /// explorer.exe needs special handling: every File Explorer window shares that
+    /// one exe name, so a plain exe-name "keep" set would treat ANY open Explorer
+    /// window as belonging to the project the moment it has a single folder in
+    /// it — leaving unrelated Explorer windows (other folders, other projects)
+    /// never offered for closing on a workspace switch. Explorer windows are kept
+    /// only if they're actually showing one of this project's folders (checking
+    /// every tab, since Windows 11 can stack folders as tabs in one window).</summary>
+    public static List<WindowInfo> OtherWindows(DeskifyProject project, IEnumerable<string>? neverClose = null)
     {
+        const string explorerExe = "explorer.exe";
         var keep = new HashSet<string>(
-            project.Apps.Select(LaunchEngine.TargetExeName),
+            project.Apps.Select(LaunchEngine.TargetExeName).Where(n => n != explorerExe),
             StringComparer.OrdinalIgnoreCase);
+        var pinned = ProtectedSet(neverClose);
+        var processTree = ProcessTree.Snapshot();
 
         return WindowScanner.Scan()
-            .Where(w => !keep.Contains(w.ExeName))
+            .Where(w => !NeverCloseMatch.IsProtected(w, pinned, processTree))
+            .Where(w => string.Equals(w.ExeName, explorerExe, StringComparison.OrdinalIgnoreCase)
+                ? !project.Folders.Any(f => ExplorerWindows.ShowsFolder(w.Hwnd, f))
+                : !keep.Contains(w.ExeName))
             .ToList();
     }
+
+    /// <summary>Every closeable window on the desktop, minus the user's "never close" apps —
+    /// used for a clean-slate workspace switch, which clears the desktop and relaunches the
+    /// target project from scratch so every window lands at its saved position. Reopening
+    /// fresh (rather than reusing a still-running instance) is the only reliable fix for
+    /// single-instance, position-sticky apps like the browser and File Explorer, which
+    /// otherwise stay wherever they were last dragged and ignore the saved layout. Deskify's
+    /// own windows and anti-cheat-protected apps are already excluded by the scanner; the
+    /// never-close list adds anything the user pinned in Settings (apps they keep open across
+    /// workspaces, or that hold unsaved work).</summary>
+    public static List<WindowInfo> AllWindows(IEnumerable<string>? neverClose = null)
+    {
+        var pinned = ProtectedSet(neverClose);
+        var processTree = ProcessTree.Snapshot();
+        return WindowScanner.Scan().Where(w => !NeverCloseMatch.IsProtected(w, pinned, processTree)).ToList();
+    }
+
+    private static HashSet<string> ProtectedSet(IEnumerable<string>? neverClose) =>
+        new(neverClose ?? [], StringComparer.OrdinalIgnoreCase);
 
     /// <summary>Politely asks each window to close (WM_CLOSE) — same as clicking its own close button.</summary>
     public static void Close(IEnumerable<WindowInfo> windows)
@@ -45,7 +78,7 @@ public static class WindowCloser
     /// after their window closes — this is what stops them from piling up across
     /// repeated workspace switches. Returns a message per window that couldn't be
     /// fully closed (protected, or the kill itself failed), for status/error reporting.</summary>
-    public static async Task<List<string>> CloseAndVerifyAsync(IEnumerable<WindowInfo> windows, int graceMs = 4000)
+    public static async Task<List<string>> CloseAndVerifyAsync(IEnumerable<WindowInfo> windows, int graceMs = 4000, CancellationToken ct = default)
     {
         var list = windows.ToList();
         var failed = new List<string>();
@@ -53,16 +86,24 @@ public static class WindowCloser
 
         Close(list);
 
-        // One representative window per PID — a process can own several of the
-        // windows being closed (e.g. multiple tabs/windows in one app instance).
-        var byPid = list.GroupBy(w => w.Pid).ToDictionary(g => g.Key, g => g.First());
+        // File Explorer windows all share the single shell explorer.exe process, which
+        // never exits — so they're verified by whether the WINDOW itself is gone, not by
+        // process exit. Tracking process exit for them made every closed Explorer window
+        // falsely report "explorer.exe: left running", since the shell process is (rightly)
+        // never force-killed. Everything else is verified by process exit and escalated to
+        // a force-kill, because many apps keep running in the background after their window
+        // closes.
+        var byPid = list.Where(w => !IsExplorer(w))
+            .GroupBy(w => w.Pid).ToDictionary(g => g.Key, g => g.First());
         var remaining = new HashSet<uint>(byPid.Keys);
+        var explorerWindows = list.Where(IsExplorer).ToList();
         var stopwatch = Stopwatch.StartNew();
 
-        while (remaining.Count > 0 && stopwatch.ElapsedMilliseconds < graceMs)
+        while ((remaining.Count > 0 || explorerWindows.Count > 0) && stopwatch.ElapsedMilliseconds < graceMs)
         {
-            await Task.Delay(300);
+            await Task.Delay(300, ct);
             remaining.RemoveWhere(HasExited);
+            explorerWindows.RemoveAll(w => !NativeMethods.IsWindow(w.Hwnd));
         }
 
         foreach (var pid in remaining)
@@ -87,8 +128,17 @@ public static class WindowCloser
             }
         }
 
+        // An Explorer window still open after the grace period genuinely refused WM_CLOSE
+        // (e.g. a modal "confirm delete" child is up) — report just that window, never the
+        // shared shell process, which we never kill.
+        foreach (var w in explorerWindows)
+            failed.Add($"File Explorer{(string.IsNullOrWhiteSpace(w.Title) ? "" : $" ({w.Title})")}: still open — close it and try again");
+
         return failed;
     }
+
+    private static bool IsExplorer(WindowInfo w) =>
+        string.Equals(w.ExeName, "explorer.exe", StringComparison.OrdinalIgnoreCase);
 
     private static bool HasExited(uint pid)
     {

@@ -25,15 +25,21 @@ public partial class MainWindow : Window
     private DeskifyProject? _editing;
     private bool _editingIsNew;
     private bool _launching;
+    // Newest-wins switching: a fresh switch cancels the token the in-flight one is
+    // using, and the generation counter tells a superseded launch to stop touching the UI.
+    private CancellationTokenSource? _launchCts;
+    private int _launchGeneration;
     private bool _collapsed;
     private bool _snapEnabled;
     private QuickSwitchWindow? _quickSwitchWindow;
+    private LoadingOverlayWindow? _launchOverlay;
     private int _wizardStep;
     private HwndSource? _hwndSource;
 
     private readonly ObservableCollection<AppRow> _editApps = [];
     private readonly ObservableCollection<string> _editFolders = [];
     private readonly ObservableCollection<string> _editUrls = [];
+    private readonly ObservableCollection<NeverCloseRow> _neverClose = [];
 
     private StackPanel[] _steps = [];
     private Border[] _segments = [];
@@ -48,6 +54,7 @@ public partial class MainWindow : Window
         EditApps.ItemsSource = _editApps;
         EditFolders.ItemsSource = _editFolders;
         EditUrls.ItemsSource = _editUrls;
+        NeverCloseList.ItemsSource = _neverClose;
 
         // Same asset as the window/taskbar icon (Assets/deskify.ico) so the sidebar
         // badge and empty-state badge are the literal brand mark, not a lookalike.
@@ -69,11 +76,17 @@ public partial class MainWindow : Window
         ThemeManager.ApplyTitleBar(this);
         var handle = new WindowInteropHelper(this).Handle;
         _hwndSource = HwndSource.FromHwnd(handle);
-        _hwndSource?.AddHook(HotkeyWndProc);
+        _hwndSource?.AddHook(WndProc);
         bool registered = NativeMethods.RegisterHotKey(handle, QuickSwitchHotkeyId,
             NativeMethods.MOD_CONTROL | NativeMethods.MOD_NOREPEAT, NativeMethods.VK_SPACE);
         if (!registered)
+        {
+            // Single-instance means it's not a second Deskify holding it — some other
+            // app has claimed Ctrl+Space globally. Tell the user instead of silently
+            // leaving quick switch dead (this was reported as "Ctrl+Space stopped working").
             Log.Error("Quick-switch hotkey (Ctrl+Space) is already claimed by another app — quick switch won't respond to it.");
+            StatusText.Text = "Ctrl+Space is being used by another app, so quick switch is off. Close whatever claimed it, then reopen Deskify.";
+        }
     }
 
     protected override void OnClosed(EventArgs e)
@@ -82,7 +95,7 @@ public partial class MainWindow : Window
         if (_hwndSource != null)
         {
             NativeMethods.UnregisterHotKey(_hwndSource.Handle, QuickSwitchHotkeyId);
-            _hwndSource.RemoveHook(HotkeyWndProc);
+            _hwndSource.RemoveHook(WndProc);
         }
         base.OnClosed(e);
     }
@@ -163,14 +176,32 @@ public partial class MainWindow : Window
         GoToStep(draft.Step);
     }
 
-    private IntPtr HotkeyWndProc(IntPtr hwnd, int msg, IntPtr wParam, IntPtr lParam, ref bool handled)
+    private IntPtr WndProc(IntPtr hwnd, int msg, IntPtr wParam, IntPtr lParam, ref bool handled)
     {
         if (msg == NativeMethods.WM_HOTKEY && wParam.ToInt32() == QuickSwitchHotkeyId)
         {
             ShowQuickSwitch();
             handled = true;
         }
+        else if (msg == (int)App.ShowExistingWindowMessage)
+        {
+            // A second Deskify launch bounced off the single-instance guard and asked
+            // us to come forward — restore, unminimize, and focus the existing window.
+            RestoreFromBackground();
+            handled = true;
+        }
         return IntPtr.Zero;
+    }
+
+    /// <summary>Brings the main window back to the foreground (used by the tray/
+    /// single-instance "show existing window" path).</summary>
+    private void RestoreFromBackground()
+    {
+        if (WindowState == WindowState.Minimized) WindowState = WindowState.Normal;
+        Show();
+        Activate();
+        Topmost = true;   // nudge past focus-stealing rules, then immediately drop it
+        Topmost = false;
     }
 
     private void ShowQuickSwitch()
@@ -278,6 +309,7 @@ public partial class MainWindow : Window
         SnapSizeBox.Text = _settings.SnapGridSize.ToString();
         StrictDefaultCheck.IsChecked = _settings.StrictLayoutDefault;
         ConfirmCloseOthersCheck.IsChecked = _settings.ConfirmCloseOthers;
+        RefreshNeverCloseList();
         SettingsStatus.Text = "";
         PopulateThemeList();
 
@@ -436,7 +468,20 @@ public partial class MainWindow : Window
     /// workspaces identically.</summary>
     private async void Launch_Click(object sender, RoutedEventArgs e)
     {
-        if (_selected == null || _launching) return;
+        if (_selected == null) return;
+
+        // Newest switch wins: cancel whatever's in flight and supersede it. The older
+        // launch sees the cancellation, stops closing/positioning windows, and unwinds
+        // without touching the UI (its generation is now stale), so only the newest
+        // click's workspace ends up on screen. This is what stops a fast burst of
+        // switches from half-applying several layouts on top of each other.
+        _launchCts?.Cancel();
+        var cts = new CancellationTokenSource();
+        _launchCts = cts;
+        var token = cts.Token;
+        int myGen = ++_launchGeneration;
+        bool IsCurrent() => myGen == _launchGeneration;
+
         _launching = true;
         LaunchBtn.IsEnabled = false;
         EditLayoutBtn.IsEnabled = false;
@@ -448,11 +493,23 @@ public partial class MainWindow : Window
         {
             LaunchEngine.SyncAutoLinkedEntries(project);
 
-            var closeErrors = await CloseUnrelatedForSwitchAsync(project);
-            if (closeErrors == null) return; // user cancelled the switch in the confirmation dialog
+            var closeErrors = await CloseAllForSwitchAsync(project, token);
+            if (closeErrors == null) return;   // user cancelled the switch in the confirmation dialog
+            if (!IsCurrent()) return;          // superseded by a newer switch
 
-            var progress = new Progress<string>(msg => StatusText.Text = msg);
-            var result = await LaunchEngine.LaunchAsync(project, _settings, progress);
+            // Cover the desktop while apps open, load, and snap into place — the user
+            // watches it assemble through the dimmed overlay but can't disturb a window
+            // mid-load. Shown only after the close-confirm dialog so it never hides it.
+            ShowLaunchOverlay();
+
+            var progress = new Progress<string>(msg => { if (IsCurrent()) { StatusText.Text = msg; _launchOverlay?.SetStatus(msg); } });
+            var result = await LaunchEngine.LaunchAsync(project, _settings, progress, token);
+            if (!IsCurrent()) return;          // superseded while launching (its overlay now owns the screen)
+
+            // Let the finished state read for a beat before the overlay clears.
+            _launchOverlay?.SetStatus("All set — good to go!");
+            await Task.Delay(600, token);
+
             var errors = closeErrors.Count > 0 ? closeErrors.Concat(result.Errors).ToList() : result.Errors;
             ErrorList.ItemsSource = errors;
 
@@ -461,34 +518,64 @@ public partial class MainWindow : Window
                 ErrorList.ItemsSource = errors.Append("Couldn't save the project file (last-used time wasn't updated) — everything else above still launched normally.").ToList();
             DetailMeta.Text = $"{project.SummaryText}  ·  {project.LastUsedText}";
         }
+        catch (OperationCanceledException)
+        {
+            // Superseded by a newer switch — that newer launch now owns the UI.
+        }
         catch (Exception ex)
         {
             Log.Error("Launch failed", ex);
-            StatusText.Text = $"Launch failed: {ex.Message}";
+            if (IsCurrent()) StatusText.Text = $"Launch failed: {ex.Message}";
         }
         finally
         {
-            _launching = false;
-            LaunchBtn.IsEnabled = true;
-            EditLayoutBtn.IsEnabled = true;
-            CloseOthersBtn.IsEnabled = true;
+            // Only the newest launch restores the buttons and clears the overlay; a
+            // superseded one must not re-enable controls or tear down the overlay the
+            // newer launch has just taken over for its own run.
+            if (IsCurrent())
+            {
+                CloseLaunchOverlay();
+                _launching = false;
+                LaunchBtn.IsEnabled = true;
+                EditLayoutBtn.IsEnabled = true;
+                CloseOthersBtn.IsEnabled = true;
+            }
         }
     }
 
-    /// <summary>Closes every running app that isn't part of <paramref name="project"/>.
-    /// Asks first via <see cref="CloseOthersWindow"/> unless the user turned that off
-    /// (Settings, or a previous "Don't ask again"). Returns null if the user cancelled
-    /// the confirmation — callers should abort the switch entirely in that case — or a
-    /// (possibly empty) list of anything that couldn't be closed otherwise.</summary>
-    private async Task<List<string>?> CloseUnrelatedForSwitchAsync(DeskifyProject project)
+    /// <summary>Show the translucent "please wait" overlay for a launch, reusing the
+    /// existing one if a superseding switch is already displaying it.</summary>
+    private void ShowLaunchOverlay()
     {
-        var others = WindowCloser.OtherWindows(project);
-        if (others.Count == 0) return [];
+        if (_launchOverlay != null) return;
+        _launchOverlay = new LoadingOverlayWindow();
+        _launchOverlay.FadeIn();
+    }
 
-        var toClose = others;
+    private void CloseLaunchOverlay()
+    {
+        _launchOverlay?.FadeOutAndClose();
+        _launchOverlay = null;
+    }
+
+    /// <summary>Clears the desktop before a workspace switch: closes everything that's
+    /// open so the project relaunches from scratch and every window lands at its saved
+    /// position (single-instance apps like the browser and File Explorer otherwise stay
+    /// wherever they were last left and ignore the saved layout). Asks first via
+    /// <see cref="CloseOthersWindow"/> — where the user can uncheck anything they want to
+    /// keep open — unless they turned that off (Settings, or a previous "Don't ask again").
+    /// Anything left open that belongs to the project is still repositioned by the launch
+    /// step. Returns null if the user cancelled the switch, or a (possibly empty) list of
+    /// anything that couldn't be closed.</summary>
+    private async Task<List<string>?> CloseAllForSwitchAsync(DeskifyProject project, CancellationToken token)
+    {
+        var open = WindowCloser.AllWindows(_settings.NeverCloseApps);
+        if (open.Count == 0) return [];
+
+        var toClose = open;
         if (_settings.ConfirmCloseOthers)
         {
-            var dialog = new CloseOthersWindow(project, others, CloseOthersWindow.Mode.WorkspaceSwitch) { Owner = this };
+            var dialog = new CloseOthersWindow(project, open, CloseOthersWindow.Mode.WorkspaceSwitch) { Owner = this };
             if (dialog.ShowDialog() != true) return null;
             if (dialog.DontAskAgain)
             {
@@ -499,14 +586,14 @@ public partial class MainWindow : Window
         }
 
         if (toClose.Count == 0) return [];
-        StatusText.Text = "Closing other apps…";
-        return await WindowCloser.CloseAndVerifyAsync(toClose);
+        StatusText.Text = "Clearing the desktop…";
+        return await WindowCloser.CloseAndVerifyAsync(toClose, ct: token);
     }
 
     private async void CloseOthers_Click(object sender, RoutedEventArgs e)
     {
         if (_selected == null || _launching) return;
-        var others = WindowCloser.OtherWindows(_selected);
+        var others = WindowCloser.OtherWindows(_selected, _settings.NeverCloseApps);
         if (others.Count == 0)
         {
             StatusText.Text = "Nothing else is open.";
@@ -545,6 +632,51 @@ public partial class MainWindow : Window
             LaunchBtn.IsEnabled = true;
             EditLayoutBtn.IsEnabled = true;
         }
+    }
+
+    // ==================== Never-close (protected) apps ====================
+
+    private void RefreshNeverCloseList()
+    {
+        _neverClose.Clear();
+        foreach (var exe in _settings.NeverCloseApps.OrderBy(n => n, StringComparer.OrdinalIgnoreCase))
+            _neverClose.Add(NeverCloseRow.From(exe));
+        NeverCloseEmpty.Visibility = _neverClose.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
+    }
+
+    /// <summary>Pick apps to add to the never-close list. Stored by a process-based
+    /// identity token (see <see cref="NeverCloseMatch.Token"/>) so it protects every window
+    /// of that app in any workspace: a Win32 launcher shortcut like Discord's
+    /// "Update.exe --processStart Discord.exe" is stored as "discord.exe", and a Store/MSIX
+    /// app like Claude is stored by its package family name — the identity every window it
+    /// opens can be matched back to.</summary>
+    private void AddNeverClose_Click(object sender, RoutedEventArgs e)
+    {
+        var picker = new AppPickerWindow { Owner = this };
+        if (picker.ShowDialog() != true) return;
+
+        bool changed = false;
+        foreach (var app in picker.Result)
+        {
+            var exe = NeverCloseMatch.Token(app);
+            if (string.IsNullOrWhiteSpace(exe) || _settings.NeverCloseApps.Contains(exe)) continue;
+            _settings.NeverCloseApps.Add(exe);
+            changed = true;
+        }
+
+        if (!changed) return;
+        _settings.Save();
+        RefreshNeverCloseList();
+        SettingsStatus.Text = "Updated your never-close apps.";
+    }
+
+    private void RemoveNeverClose_Click(object sender, RoutedEventArgs e)
+    {
+        if ((sender as FrameworkElement)?.Tag is not string exe) return;
+        if (_settings.NeverCloseApps.RemoveAll(n => string.Equals(n, exe, StringComparison.OrdinalIgnoreCase)) == 0) return;
+        _settings.Save();
+        RefreshNeverCloseList();
+        SettingsStatus.Text = "Updated your never-close apps.";
     }
 
     // ==================== Layout editor ====================
@@ -1048,6 +1180,30 @@ public sealed class AppRow
 
     public static AppRow From(AppEntry entry) =>
         new() { Entry = entry, Icon = IconLoader.GetSmallIcon(entry.Path) };
+}
+
+/// <summary>One entry in Settings → "Never close these apps". <see cref="ExeName"/> is the
+/// stored identity token (an exe name like "flstudio.exe", or a Store package family name
+/// like "claude_pzs8sxrjxfjjc") used for matching and removal; <see cref="Label"/> is the
+/// friendlier text shown to the user.</summary>
+public sealed class NeverCloseRow
+{
+    public required string ExeName { get; init; }
+    public static NeverCloseRow From(string exe) => new() { ExeName = exe };
+
+    /// <summary>Human-readable label. Win32 exe names show as-is; a Store family-name token
+    /// shows its app-name portion (the part before the publisher hash) tagged as a Store app,
+    /// since the raw family name is cryptic.</summary>
+    public string Label
+    {
+        get
+        {
+            if (ExeName.EndsWith(".exe", StringComparison.OrdinalIgnoreCase)) return ExeName;
+            var name = ExeName.Split('_', 2)[0];
+            if (name.Length > 0) name = char.ToUpperInvariant(name[0]) + name[1..];
+            return $"{name} (Store app)";
+        }
+    }
 }
 
 /// <summary>Compact project list row: name, summary, last-used, icon cluster.</summary>

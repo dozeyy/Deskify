@@ -555,6 +555,37 @@
                             </StackPanel>
                         </Border>
 
+                        <TextBlock Text="Never close these apps" Style="{StaticResource Eyebrow}" Margin="0,20,0,8" />
+                        <Border Style="{StaticResource Card}">
+                            <StackPanel>
+                                <TextBlock TextWrapping="Wrap" Style="{StaticResource Muted}" FontSize="11" Margin="0,0,0,10"
+                                           Text="Switching a workspace clears the desktop first. Apps listed here are never closed by a switch or Close Other Apps — add anything you keep open across projects or that holds unsaved work (FL Studio, an editor, etc.)." />
+                                <ItemsControl x:Name="NeverCloseList">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <Border Background="{DynamicResource PanelBrush}" CornerRadius="6"
+                                                    Padding="10,6" Margin="0,0,0,6">
+                                                <Grid>
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="*" />
+                                                        <ColumnDefinition Width="Auto" />
+                                                    </Grid.ColumnDefinitions>
+                                                    <TextBlock Text="{Binding Label}" VerticalAlignment="Center"
+                                                               TextTrimming="CharacterEllipsis" />
+                                                    <Button Grid.Column="1" Content="Remove" VerticalAlignment="Center"
+                                                            Click="RemoveNeverClose_Click" Tag="{Binding ExeName}" />
+                                                </Grid>
+                                            </Border>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                                <TextBlock x:Name="NeverCloseEmpty" Style="{StaticResource Muted}" FontSize="11"
+                                           TextWrapping="Wrap"
+                                           Text="Nothing pinned yet — a switch can close any app (except Deskify and Riot apps)." />
+                                <Button Content="Add app…" Click="AddNeverClose_Click" HorizontalAlignment="Left" Margin="0,10,0,0" />
+                            </StackPanel>
+                        </Border>
+
                         <TextBlock Text="Quick switch" Style="{StaticResource Eyebrow}" Margin="0,20,0,8" />
                         <Border Style="{StaticResource Card}">
                             <StackPanel>
