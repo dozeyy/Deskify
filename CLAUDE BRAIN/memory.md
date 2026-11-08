@@ -1,5 +1,8 @@
 # AI Brain — Memory Log (Root)
 
+## 2026-11-08
+- New logo: two overlapping indigo (#5B63EE) window outlines on a white rounded square (the back window an open outline). Vector master at src\Deskify.App\Assets\deskify.svg. deskify.ico (16–256px PNG frames, app + installer copies) and macos/Resources/deskify-icon.png (now a native 1024px master) re-rendered from it. IcoDeskify geometry in Styles.xaml updated to match.
+
 ## 2026-07-05
 - Discord (single-instance Electron) still opened at "whatever the newest saved location is, no matter which deskspace." **The per-deskspace data was already correct** — `coding.json` and `music-production.json` each store their own Discord `AppEntry.Window` (monitor 0 @92,111 vs monitor 1 @1280,0); there is no shared/global one-position-per-app. The symptom was purely the launch **settle race** in `LaunchEngine.PositionWindowsAsync`: the settle loop did `if (allGood) break;` — it stopped re-correcting the instant the window matched **once**. Discord opens at its own internally-remembered bounds, briefly matches right after Deskify re-applies, then re-asserts that remembered position a beat later — landing back at the last-used ("newest") spot after we'd already stopped watching. Fix: require the layout to hold across **consecutive** passes (`requiredStable = 2`, tracked via `stableStreak`) before breaking, and treat a momentarily-missing match (mid-swap) as `allGood = false` so it keeps watching instead of possibly breaking on a gap. Also bumped settle attempts (non-strict 5→6, strict 8→10) to give the confirming pass headroom. General fix for any self-restoring single-instance app, not just Discord.
   - Verification follow-up (Will asked to confirm per-deskspace positioning works "every time"): traced full save→launch→settle path against the two real projects, confirmed build clean + app starts with no exception (the 13:13 `FileNotFoundException` was from the in-progress sound-removal work, gone in current build), confirmed switch closes+relaunches Discord fresh (`neverCloseApps` empty, `confirmCloseOthers:false`). Two reliability fixes applied with Will's OK:
@@ -62,5 +65,3 @@
   - Persistent session state
   - Efficient resource usage
 - Set strict preference for direct, implementation-focused communication style.
-## 2026-11-08
-- New logo: two overlapping indigo (#5B63EE) window outlines on a white rounded square (the back window an open outline). Vector master at src\Deskify.App\Assets\deskify.svg. deskify.ico (16–256px PNG frames, app + installer copies) and macos/Resources/deskify-icon.png (now a native 1024px master) re-rendered from it. IcoDeskify geometry in Styles.xaml updated to match.
