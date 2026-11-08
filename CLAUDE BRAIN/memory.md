@@ -62,3 +62,5 @@
   - Persistent session state
   - Efficient resource usage
 - Set strict preference for direct, implementation-focused communication style.
+## 2026-11-08
+- New logo: two overlapping indigo (#5B63EE) window outlines on a white rounded square (the back window an open outline). Vector master at src\Deskify.App\Assets\deskify.svg. deskify.ico (16–256px PNG frames, app + installer copies) and macos/Resources/deskify-icon.png (now a native 1024px master) re-rendered from it. IcoDeskify geometry in Styles.xaml updated to match.

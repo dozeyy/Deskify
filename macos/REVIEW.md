@@ -92,9 +92,8 @@ Notable resilience properties confirmed by reading the paths:
 - Ad-hoc-signature ↔ Accessibility TCC interaction: because ad-hoc signatures
   change every rebuild, macOS may require re-granting Accessibility after each
   local rebuild. A stable Developer ID identity removes this.
-- Icon crispness: the master is 256×256 (extracted from the Windows `.ico`);
-  `make-icons.sh` upscales to 512/1024. Acceptable for testing; a native
-  512/1024 master would be sharper for release.
+- Icon crispness: the master is a native 1024×1024 render of
+  `src/Deskify.App/Assets/deskify.svg`, so `make-icons.sh` only scales down.
 
 ## Recommended first-run sequence on a Mac
 

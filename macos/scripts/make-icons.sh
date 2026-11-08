@@ -1,7 +1,7 @@
 #!/bin/bash
 # Generates every macOS app-icon size from the single master PNG
-# (Resources/deskify-icon.png, the shared Deskify mark extracted from the
-# Windows deskify.ico). Produces BOTH:
+# (Resources/deskify-icon.png, a 1024x1024 render of the shared Deskify mark,
+# src/Deskify.App/Assets/deskify.svg). Produces BOTH:
 #   * Resources/Assets.xcassets/AppIcon.appiconset/*.png  (for the Xcode build)
 #   * build/Deskify.icns                                  (for the SPM/manual .app)
 #

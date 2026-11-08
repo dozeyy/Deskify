@@ -61,10 +61,10 @@
         <Setter Property="SnapsToDevicePixels" Value="True" />
     </Style>
 
-    <!-- Deskify brand mark: a tiled window layout (tall pane + two stacked panes) —
-         the same design as Assets\deskify.ico, so the in-app logo, exe, taskbar,
-         and shortcuts all read as one mark. -->
-    <Geometry x:Key="IcoDeskify">M4 4.5h6.5v15H4z M13.5 4.5H20V11h-6.5z M13.5 13H20v6.5h-6.5z</Geometry>
+    <!-- Deskify brand mark: two overlapping windows (the back one an open outline) —
+         the same design as Assets\deskify.svg / deskify.ico, so the in-app logo, exe,
+         taskbar, and shortcuts all read as one mark. -->
+    <Geometry x:Key="IcoDeskify">M16.29 6.75V6.49A1.125 1.125 0 0 0 15.16 5.37H5.27A1.125 1.125 0 0 0 4.15 6.49V14.93A1.125 1.125 0 0 0 5.27 16.05H5.6 M8.84 8.93H18.73A1.125 1.125 0 0 1 19.85 10.05V17.51A1.125 1.125 0 0 1 18.73 18.63H8.84A1.125 1.125 0 0 1 7.71 17.51V10.05A1.125 1.125 0 0 1 8.84 8.93Z</Geometry>
     <!-- Projects: stacked layers -->
     <Geometry x:Key="IcoLayers">M12 3 3 8l9 5 9-5-9-5z M3 13l9 5 9-5 M3 17.5l9 5 9-5</Geometry>
     <!-- Settings: sliders -->

@@ -12,8 +12,8 @@
     <UseWPF>true</UseWPF>
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <!-- Multi-size icon (16–256px): exe, taskbar, window chrome, and shortcuts
-         all pick this up automatically. Regenerate via the tiles design in
-         Styles.xaml (IcoDeskify) if the brand ever changes. -->
+         all pick this up automatically. Rendered from the vector master
+         Assets\deskify.svg; keep Styles.xaml (IcoDeskify) in step if the brand changes. -->
     <ApplicationIcon>Assets\deskify.ico</ApplicationIcon>
 
     <Product>Deskify</Product>
