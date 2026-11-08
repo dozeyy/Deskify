@@ -40,19 +40,16 @@
 
                     <!-- Mark + wordmark -->
                     <StackPanel Grid.Row="0">
-                        <Border Width="72" Height="72" CornerRadius="18"
-                                Background="{StaticResource CardBrush}"
-                                BorderBrush="{StaticResource StrokeBrush}" BorderThickness="1"
-                                HorizontalAlignment="Left">
-                            <Viewbox Width="40" Height="40">
-                                <Canvas Width="24" Height="24">
-                                    <Path Data="M4 4.5h6.5v15H4z M13.5 4.5H20V11h-6.5z M13.5 13H20v6.5h-6.5z"
-                                          Stroke="{StaticResource AccentBrush}" StrokeThickness="1.4"
-                                          StrokeStartLineCap="Round" StrokeEndLineCap="Round"
-                                          StrokeLineJoin="Round" />
-                                </Canvas>
-                            </Viewbox>
-                        </Border>
+                        <!-- The Deskify app icon (same coordinates as src/Deskify.App/Assets/deskify.svg) -->
+                        <Viewbox Width="72" Height="72" HorizontalAlignment="Left">
+                            <Canvas Width="1024" Height="1024">
+                                <Rectangle Width="1024" Height="1024" RadiusX="228" RadiusY="228" Fill="#FFFFFF" />
+                                <Path Data="M695 288V277A48 48 0 0 0 647 229H225A48 48 0 0 0 177 277V637A48 48 0 0 0 225 685H239 M377 381H799A48 48 0 0 1 847 429V747A48 48 0 0 1 799 795H377A48 48 0 0 1 329 747V429A48 48 0 0 1 377 381Z"
+                                      Stroke="#5B63EE" StrokeThickness="80"
+                                      StrokeStartLineCap="Round" StrokeEndLineCap="Round"
+                                      StrokeLineJoin="Round" />
+                            </Canvas>
+                        </Viewbox>
                         <TextBlock Text="Deskify" FontSize="27" FontWeight="SemiBold"
                                    Foreground="{StaticResource TextBrush}" Margin="0,20,0,0" />
                         <TextBlock Text="Workspace automation" FontSize="12.5"
